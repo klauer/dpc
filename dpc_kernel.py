@@ -18,31 +18,30 @@ from __future__ import print_function
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import PIL
-from PIL import Image
 
-from scipy.misc import imsave
 from scipy.optimize import minimize
 import time
-import zipfile
 from six import StringIO
 import load_timepix
+import filestore.api as fsapi
+
 
 rss_cache = {}
-
 rss_iters = 0
+
 
 def get_beta(xdata):
     length = len(xdata)
     try:
         beta = rss_cache[length]
     except:
-        #beta = 1j * (np.arange(length) + 1 - (np.floor(length / 2.0) + 1))
+        # beta = 1j * (np.arange(length) + 1 - (np.floor(length / 2.0) + 1))
         beta = 1j * (np.arange(length) - np.floor(length / 2.0))
         rss_cache[length] = beta
 
     return beta
+
 
 def rss(v, xdata, ydata, beta):
     '''Function to be minimized in the Nelder Mead algorithm'''
@@ -67,35 +66,43 @@ def pil_load(fn):
     return x.astype('=u2')
 
 
+def load_image_filestore(datum_id):
+    return fsapi.retrieve(datum_id)
+
+
 def load_file(load_image, fn, hang, roi=None, bad_pixels=[], zip_file=None):
     """
     Load an image file
     """
-    if hang is 1:
-        while(not os.path.exists(fn)):
-            time.sleep(0.1)
-        else:
+    if load_image == load_image_filestore:
+        # ignore hanging settings, just hit filestore
+        im = load_image(fn)
+    else:
+        if hang is 1:
+            while(not os.path.exists(fn)):
+                time.sleep(0.1)
+            else:
+                im = load_image(fn)
+
+        elif os.path.exists(fn):
             im = load_image(fn)
 
-    elif os.path.exists(fn):
-        im = load_image(fn)
+        elif zip_file is not None:
+            raise NotImplementedError
 
-    elif zip_file is not None:
-        raise NotImplementedError
+            # loading from a zip file is just about as fast (when not running in
+            # parallel)
+            f = zip_file.open(fn)
+            stream = StringIO.StringIO()
+            stream.write(f.read())
+            f.close()
 
-        # loading from a zip file is just about as fast (when not running in
-        # parallel)
-        f = zip_file.open(fn)
-        stream = StringIO.StringIO()
-        stream.write(f.read())
-        f.close()
+            stream.seek(0)
+            im = plt.imread(stream, format='tif')
+        else:
+            raise Exception('File not found: %s' % fn)
 
-        stream.seek(0)
-        im = plt.imread(stream, format='tif')
-    else:
-        raise Exception('File not found: %s' % fn)
-
-    #print(im.shape)
+    # print(im.shape)
 
     if bad_pixels is not None:
         for x, y in bad_pixels:
@@ -132,10 +139,10 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
             energy=19.5, zip_file=None, roi=None, bad_pixels=[],
             max_iters=1000,
             solver='Nelder-Mead',
-            hang = 1,
-            reverse_x = 1,
-            reverse_y = 1,
-            load_image = load_timepix.load):
+            hang=True,
+            reverse_x=1,
+            reverse_y=1,
+            load_image=load_timepix.load):
     """
     All units in micron
 
@@ -272,15 +279,17 @@ def main(file_format='SOFC/SOFC_%05d.tif',
          bad_pixels=[],
          solver='Nelder-Mead',
          display_fcn=None,
-         random = 1,
-         pyramid = -1,
-         hang = 1,
-         swap = -1,
-         reverse_x = 1,
-         reverse_y = 1,
-         mosaic_x = 121,
-         mosaic_y = 121,
-         load_image = load_timepix.load):
+         random=1,
+         pyramid=-1,
+         hang=1,
+         swap=-1,
+         reverse_x=1,
+         reverse_y=1,
+         mosaic_x=121,
+         mosaic_y=121,
+         load_image=load_timepix.load,
+         use_mds=False,
+         scan=None):
 
     print('DPC')
     print('---')
@@ -301,6 +310,8 @@ def main(file_format='SOFC/SOFC_%05d.tif',
     print('\treverse_x : %s' % reverse_x)
     print('\treverse_y : %s' % reverse_y)
     print('\tROI: (%s, %s)-(%s, %s)' % (x1, y1, x2, y2))
+    print('\tUse mds : %s' % use_mds)
+    print('\tScan : %s' % scan)
 
     t0 = time.time()
 
@@ -330,15 +341,22 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                         roi=roi,
                         bad_pixels=bad_pixels,
                         solver=solver,
-                        load_image = load_image,
-                        hang = hang,
-                        reverse_x = reverse_x,
-                        reverse_y = reverse_y,
+                        load_image=load_image,
+                        hang=hang,
+                        reverse_x=reverse_x,
+                        reverse_y=reverse_y,
                         )
 
-    def get_filename(i, j):
-        frame_num = first_image + i * cols + j
-        return file_format % frame_num
+    if use_mds:
+        image_uids = list(scan)
+        print('Filestore has %d images' % (len(image_uids)))
+
+        def get_filename(i, j):
+            return image_uids[first_image + i * cols + j]
+    else:
+        def get_filename(i, j):
+            frame_num = first_image + i * cols + j
+            return file_format % frame_num
 
     # Wavelength in micron
     lambda_ = 12.4e-4 / energy

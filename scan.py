@@ -1,6 +1,6 @@
 import collections
 import numpy as np
-import databroker as db
+from databroker import DataBroker as db
 import logging
 
 
@@ -39,22 +39,25 @@ def get_scan_info(header):
     scan_type = start_doc['scan_type']
     motors = None
     range_ = None
+    command = None
 
     if scan_type in fly_scans:
         logger.debug('Scan %s (%s) is a fly scan (%s)', start_doc.scan_id,
                      start_doc.uid, scan_type)
         dimensions = start_doc['dimensions']
         motors = start_doc['axes']
+        scan_args = start_doc['scan_args']
+        command = '\n'.join('%s=%s' % (arg, scan_args[arg])
+                            for arg in scan_args
+                            if arg not in 'detectors')
         try:
             range_ = start_doc['scan_range']
         except KeyError:
             try:
-                scan_args = start_doc['scan_args']
                 range_ = [(float(scan_args['scan_start']),
                            float(scan_args['scan_end']))]
             except (KeyError, ValueError):
                 pass
-
     elif scan_type in step_2d:
         logger.debug('Scan %s (%s) is an ND scan (%s)', start_doc.scan_id,
                      start_doc.uid, scan_type)
@@ -82,6 +85,7 @@ def get_scan_info(header):
             'dimensions': dimensions,
             'motors': motors,
             'range': range_,
+            'command': command,
             }
 
 
@@ -113,5 +117,15 @@ class Scan(object):
                     if source in ('filestore', ):
                         yield key
 
+    @property
+    def scan_id(self):
+        return self.start_doc['scan_id']
+
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__, self.header)
+        return '{}(scan_id={})'.format(self.__class__.__name__, self.scan_id)
+
+    def __iter__(self):
+        for event in db.fetch_events(self.header, fill=False):
+            yield event['data'][self.key]
+
+        raise StopIteration()

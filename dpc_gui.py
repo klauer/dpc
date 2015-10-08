@@ -32,6 +32,8 @@ import pyspecfile
 from databroker import DataBroker
 from scan import Scan
 
+get_save_filename = QtGui.QFileDialog.getSaveFileName
+
 
 SOLVERS = ['Nelder-Mead',
            'Powell',
@@ -50,6 +52,7 @@ SOLVERS = ['Nelder-Mead',
 TYPES = ['TIFF',
          'Timepix TIFF',
          'ASCII',
+         'FileStore',
          ]
 
 roi_x1 = 0
@@ -309,7 +312,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.start_widget.clicked.connect(self.start)
         self.stop_widget.clicked.connect(self.stop)
         self.save_widget.clicked.connect(self.save)
-        self.scan_button.clicked.connect(self.load_from_scan)
+        self.scan_button.clicked.connect(self.load_from_spec_scan)
 
         self.load_image = load_timepix.load
 
@@ -432,7 +435,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.pixel_size_lbl = QtGui.QLabel('Pixel size (um)')
         self.file_name_lbl = QtGui.QLabel('File name')
         self.first_img_num_lbl = QtGui.QLabel('First image number')
-        self.scan_info_lbl = QtGui.QLabel('[scan information]')
+        self.scan_info_lbl = QtGui.QLabel('')
+        self.scan_info_lbl.setWordWrap(True)
         self.select_ref_btn = QtGui.QPushButton('Select the reference')
         self.select_ref_btn.clicked.connect(self.select_ref_img)
         self.img_type_combobox = QtGui.QComboBox()
@@ -444,6 +448,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.use_scan_number_cb = QtGui.QCheckBox("Read from metadatastore")
         self.use_scan_number_cb.toggled.connect(self._use_scan_number_clicked)
         self.filestore_key_combo = QtGui.QComboBox()
+        self.filestore_key_combo.currentIndexChanged.connect(self._filestore_key_changed)
         self.load_scan_btn = QtGui.QPushButton('Load')
         self.load_scan_btn.clicked.connect(self.load_scan_from_mds)
 
@@ -660,7 +665,7 @@ class DPCWindow(QtGui.QMainWindow):
 
             'scan_number': [lambda: self.scan_number, lambda value: setattr(self, 'scan_number', value)],
             'use_mds': [lambda: self.use_mds, lambda value: setattr(self, 'use_mds', value)],
-            'filestore_key':  [lambda: self.filestore_key, lambda value: setattr(self, 'filestore_key', value)],
+            'filestore_key': [lambda: self.filestore_key, lambda value: setattr(self, 'filestore_key', value)],
             #'color_map': [lambda: self._color_map, lambda value: setattr(self, 'last_path', value)],
             }
 
@@ -684,8 +689,15 @@ class DPCWindow(QtGui.QMainWindow):
         self.load_settings()
 
     def _use_scan_number_clicked(self, checked):
+        self.use_mds = checked
         self.file_widget.setEnabled(not self.use_mds)
         self.filestore_key_combo.setVisible(self.use_mds)
+        self.scan_info_lbl.setVisible(self.use_mds)
+
+        if self.use_mds:
+            self.img_type_combobox.setCurrentIndex(TYPES.index('FileStore'))
+
+        self.img_type_combobox.setEnabled(not self.use_mds)
 
     @property
     def use_mds(self):
@@ -719,6 +731,8 @@ class DPCWindow(QtGui.QMainWindow):
             if key == selected:
                 self.filestore_key_combo.setCurrentIndex(i)
 
+        self.use_mds = True
+
         if self.scan.dimensions is None or len(self.scan.dimensions) == 0:
             return
 
@@ -740,6 +754,9 @@ class DPCWindow(QtGui.QMainWindow):
         self.cols = nx
         self.rows = ny
 
+        command = self.scan.command
+        self.scan_info_lbl.setText(command)
+
     def load_scan_from_mds(self):
         return self._load_scan_from_mds(self.scan_number)
 
@@ -750,6 +767,15 @@ class DPCWindow(QtGui.QMainWindow):
     @scan_number.setter
     def scan_number(self, value):
         self.scan_number_text.setText(str(value))
+
+    def _filestore_key_changed(self, event):
+        key = self.filestore_key
+        if self.scan is not None:
+            self.scan.key = key
+            print('MDS key set:', key)
+            iter_ = iter(self.scan)
+            ref_image = next(iter_)
+            self.ref_image_path_QLineEdit.setText(ref_image)
 
     def on_press(self, event):
         if event.inaxes:
@@ -821,7 +847,6 @@ class DPCWindow(QtGui.QMainWindow):
             self.set_roi_enabled = False
 
     def update_display(self, a, gx, gy, phi, flag=None): # ax is a pyplot object
-
         def show_line(ax, line):
             ax.plot(line, '-*')
             #return mpl.pyplot.show()
@@ -1188,7 +1213,7 @@ class DPCWindow(QtGui.QMainWindow):
 
         """
         global a, gx, gy, phi
-        path = QtGui.QFileDialog.getSaveFileName(self, 'Select path', '/home')
+        path = get_save_filename(self, 'Select path', '/home')
         path = str(path)
         if path != '':
             a_path = path + '_a.txt'
@@ -1241,22 +1266,8 @@ class DPCWindow(QtGui.QMainWindow):
                 ref_path = str(self.ref_image_path_QLineEdit.text())
             else:
                 ref_path = str(self.file_widget.text()) % self.first_widget.value()
+
             try:
-                """
-                if self.load_image is load_image_ascii:
-                    self.roi_img = np.float32(self.load_image(ref_path))
-                    roi_array = np.float32(self.load_image(ref_path))
-                    self.roi_img = PIL.Image.fromstring('F;8',
-                                                        (roi_array.shape[1],
-                                                         roi_array.shape[0]),
-                                                         roi_array.tostring())
-                else:
-                    roi_array = np.uint16(self.load_image(ref_path))
-                    self.roi_img = PIL.Image.fromstring('I;16',
-                                                        (roi_array.shape[1],
-                                                         roi_array.shape[0]),
-                                                         roi_array.tostring())
-                """
                 self.roi_img = self.load_image(ref_path)
                 self.calHist()
                 self.ref_canvas.ref_im = self.ax.imshow(self.roi_img,
@@ -1266,7 +1277,6 @@ class DPCWindow(QtGui.QMainWindow):
                 self.ref_canvas.ref_im.set_cmap(self._ref_color_map)
                 self.ref_widget.show()
                 self.ref_canvas.draw()
-
             except:
                 e = sys.exc_info()[1]
                 QtGui.QMessageBox.information(self, 'Read error',
@@ -1280,7 +1290,6 @@ class DPCWindow(QtGui.QMainWindow):
     def first_equal_ref(self, state):
         """
         First image ?= reference image
-
         """
 
         if state == QtCore.Qt.Checked:
@@ -1305,6 +1314,8 @@ class DPCWindow(QtGui.QMainWindow):
             self.load_image = load_image_pil
         elif method == 'ASCII':
             self.load_image = load_image_ascii
+        elif method == 'FileStore':
+            self.load_image = dpc.load_image_filestore
 
     def _set_color_map(self, index):
         '''
@@ -1314,8 +1325,8 @@ class DPCWindow(QtGui.QMainWindow):
         print('Color map set to: %s' % cm_)
         self._color_map = mpl.cm.get_cmap(cm_)
         try:
-            for im in [self.canvas.imphi, self.canvas.imx,
-                       self.canvas.ima, self.canvas.imy]:
+            for im in [self.canvas.imphi, self.canvas.imx, self.canvas.ima,
+                       self.canvas.imy]:
                 im.set_cmap(self._color_map)
         except Exception as ex:
             print('failed to set color map: (%s) %s' % (ex.__class__.__name__,
@@ -1578,7 +1589,6 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def bad_pixels(self):
-        pixels = []
         w = self.bad_pixels_widget
 
         def fix_tuple(item):
@@ -1598,7 +1608,8 @@ class DPCWindow(QtGui.QMainWindow):
                 self.bad_pixels_widget.addItem('%d, %d' % (x, y))
 
         def remove():
-            rows = [index.row() for index in self.bad_pixels_widget.selectedIndexes()]
+            rows = [index.row() for index in
+                    self.bad_pixels_widget.selectedIndexes()]
             for row in reversed(sorted(rows)):
                 self.bad_pixels_widget.takeItem(row)
 
@@ -1612,7 +1623,7 @@ class DPCWindow(QtGui.QMainWindow):
 
         menu.popup(self.bad_pixels_widget.mapToGlobal(pos))
 
-    def load_from_scan(self):
+    def load_from_spec_scan(self):
         filename = QtGui.QFileDialog.getOpenFileName(self, 'Scan filename', self.last_path, '*.spec')
         if not filename:
             return
@@ -1687,7 +1698,8 @@ class DPCWindow(QtGui.QMainWindow):
     def dpc_settings(self):
         ret = {}
         for key, (getter, setter) in self._settings.items():
-            ret[key] = getter()
+            if key not in ('last_path', 'scan_number', 'filestore_key'):
+                ret[key] = getter()
         return ret
 
     def start(self):
@@ -1717,8 +1729,10 @@ class DPCWindow(QtGui.QMainWindow):
             thread.update_signal.connect(self.update_display)
 
             thread.dpc_settings = self.dpc_settings
-            #del thread.dpc_settings['processes']
-            del thread.dpc_settings['last_path']
+            if self.use_mds:
+                thread.dpc_settings['scan'] = self.scan
+
+            # del thread.dpc_settings['processes']
             thread.start()
             self.set_running(True)
 
@@ -1739,7 +1753,7 @@ class DPCWindow(QtGui.QMainWindow):
             self.set_running(False)
 
     def save(self):
-        filename = QtGui.QFileDialog.getSaveFileName(self, 'Save filename prefix', '', '')
+        filename = get_save_filename(self, 'Save filename prefix', '', '')
         if not filename:
             return
 
@@ -1756,7 +1770,7 @@ class DPCWindow(QtGui.QMainWindow):
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
-    #app.setAttribute(Qt.AA_X11InitThreads)
+    # app.setAttribute(Qt.AA_X11InitThreads)
 
     window = DPCWindow()
     window.show()

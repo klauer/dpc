@@ -26,7 +26,7 @@ from scipy.misc import imsave
 from scipy.optimize import minimize
 import time
 import zipfile
-import cStringIO as StringIO
+from six import StringIO
 import load_timepix
 
 rss_cache = {}
@@ -62,7 +62,7 @@ def pil_load(fn):
         x = toarray(im, '>u2')
     else:
         x = toarray(im, '<u2')
-        
+
     x.shape = im.size[1], im.size[0]
     return x.astype('=u2')
 
@@ -82,7 +82,7 @@ def load_file(load_image, fn, hang, roi=None, bad_pixels=[], zip_file=None):
 
     elif zip_file is not None:
         raise NotImplementedError
-    
+
         # loading from a zip file is just about as fast (when not running in
         # parallel)
         f = zip_file.open(fn)
@@ -176,9 +176,9 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
 
 
 def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
-    """ 
-    Reconstruct the final phase image 
-    Parameters 
+    """
+    Reconstruct the final phase image
+    Parameters
     ----------
     gx : 2-D numpy array
         phase gradient along x direction
@@ -198,11 +198,11 @@ def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
                     p p p
         pad = 3 --> p v p
                     p p p
-                    
+
     w : float
         weighting parameter for the phase gradient along x and y direction when
         constructing the final phase image
-        
+
     Returns
     ----------
     phi : 2-D numpy array
@@ -212,11 +212,11 @@ def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
     ----------
     [1] Yan, Hanfei, Yong S. Chu, Jorg Maser, Evgeny Nazaretski, Jungdae Kim,
     Hyon Chol Kang, Jeffrey J. Lombardo, and Wilson KS Chiu, "Quantitative
-    x-ray phase imaging at the nanoscale by multilayer Laue lenses," Scientific 
+    x-ray phase imaging at the nanoscale by multilayer Laue lenses," Scientific
     reports 3 (2013).
-    
+
     """
-    
+
     rows, cols = gx.shape
 
     gx_padding = np.zeros((pad * rows, pad * cols), dtype='d')
@@ -224,12 +224,12 @@ def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
 
     gx_padding[(pad // 2) * rows : (pad // 2 + 1) * rows,
                (pad // 2) * cols : (pad // 2 + 1) * cols] = gx
-    gy_padding[(pad // 2) * rows : (pad // 2 + 1) * rows, 
+    gy_padding[(pad // 2) * rows : (pad // 2 + 1) * rows,
                (pad // 2) * cols : (pad // 2 + 1) * cols] = gy
 
     tx = np.fft.fftshift(np.fft.fft2(gx_padding))
     ty = np.fft.fftshift(np.fft.fft2(gy_padding))
-    
+
     c = np.zeros((pad * rows, pad * cols), dtype=complex)
 
     mid_col = pad * cols // 2.0 + 1
@@ -310,7 +310,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
             roi = (x1, y1, x2, y2)
 
     # read the reference image: only one reference image
-    reference, ref_fx, ref_fy = load_file(load_image, ref_image, hang, 
+    reference, ref_fx, ref_fy = load_file(load_image, ref_image, hang,
                                           zip_file=zip_file, roi=roi,
                                           bad_pixels=bad_pixels)
 
@@ -357,12 +357,12 @@ def main(file_format='SOFC/SOFC_%05d.tif',
     gy_factor = len(ref_fx) * pixel_size / (lambda_ * focus_to_det * 1e6)
 
     for n in range(mosaic_y):
-        for m in range(mosaic_x):    
+        for m in range(mosaic_x):
             args = [(get_filename(i, j), i, j)
                     for i in range(n * mrows, n * mrows + mrows)
                     for j in range(m * mcols, m * mcols + mcols)
                     ]
-            
+
             try:
 
                 if display_fcn is not None and random is 1:
@@ -380,10 +380,10 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                             if result.ready():
                                 _a, _gx, _gy = result.get()
                                 fn, i, j = arg
-                                
+
                                 if pyramid == 1 and i % 2 != 0:
                                     j = mcols - j - 1
-    
+
                                 a[i, j] = _a
                                 if swap is 1:
                                     gy[i, j] = _gx * gx_factor
@@ -392,7 +392,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                                     gx[i, j] = _gx * gx_factor
                                     gy[i, j] = _gy * gy_factor
                                 k += 1
-                                
+
                         try:
                             display_fcn(a, gx, gy, None)
                         except Exception as ex:
@@ -404,14 +404,14 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                 return
     pool.close()
     pool.join()
-    
+
     _t1 = time.time()
     elapsed = _t1 - _t0
     print('Multiprocess elapsed=%.3f frames=%d (per frame %.3fms)' % (elapsed, rows * cols,
                                                                         1000 * elapsed / (rows * cols)))
 
     dim = len(np.squeeze(gx).shape)
-    if dim is not 1:   
+    if dim is not 1:
 
         phi = recon(gx, gy, dx, dy)
         t1 = time.time()
@@ -427,7 +427,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
         phi = None
         display_fcn(a, gx, gy, phi)
         return a, gx, gy, phi
-        
+
 if __name__ == '__main__':
     zip_file = None  # zipfile.ZipFile('SOFC.zip')
     main(zip_file=zip_file, processes=0, rows=121, cols=121)

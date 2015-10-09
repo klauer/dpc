@@ -67,7 +67,12 @@ def pil_load(fn):
 
 
 def load_image_filestore(datum_id):
-    return fsapi.retrieve(datum_id)
+    try:
+        return fsapi.retrieve(datum_id)
+    except Exception as ex:
+        print('Filestore load failed (datum={}): ({}) {}'
+              ''.format(datum_id, ex.__class__.__name__, ex))
+        raise
 
 
 def load_file(load_image, fn, hang, roi=None, bad_pixels=[], zip_file=None):

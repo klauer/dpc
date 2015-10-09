@@ -668,7 +668,7 @@ class DPCWindow(QtGui.QMainWindow):
             w.setMaximum(int(2 ** 31 - 1))
             try:
                 w.setDecimals(3)
-            except:
+            except Exception:
                 pass
 
         for w in [self.strap_start, self.strap_end]:
@@ -1365,7 +1365,7 @@ class DPCWindow(QtGui.QMainWindow):
         """
         if pressed:
             self.load_img_method()
-            if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked:
+            if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked or self.use_mds:
                 ref_path = str(self.ref_image_path_QLineEdit.text())
             else:
                 ref_path = str(self.file_widget.text()) % self.first_widget.value()
@@ -1380,10 +1380,10 @@ class DPCWindow(QtGui.QMainWindow):
                 self.ref_canvas.ref_im.set_cmap(self._ref_color_map)
                 self.ref_widget.show()
                 self.ref_canvas.draw()
-            except:
+            except Exception as ex:
                 e = sys.exc_info()[1]
                 QtGui.QMessageBox.information(self, 'Read error',
-                                              '''Could not read the reference image! \r %s''' % (e),
+                                              '''Could not read the reference image! \r (%s) %s''' % (ex.__class__.__name__, ex),
                                               QtGui.QMessageBox.Ok)
                 self.hide_btn.setChecked(False)
 

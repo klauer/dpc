@@ -798,6 +798,9 @@ class DPCWindow(QtGui.QMainWindow):
         self.scan = Scan(hdr)
         selected = self.filestore_key
         self.filestore_key_combo.clear()
+        if load_config:
+            self.ref_image_path_QLineEdit.setText('')
+
         for i, key in enumerate(sorted(self.scan.filestore_keys)):
             self.filestore_key_combo.addItem(key)
             if key == selected:

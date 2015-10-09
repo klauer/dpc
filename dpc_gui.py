@@ -2,23 +2,25 @@ from __future__ import print_function
 
 import os
 import sys
+import csv
+import time
+from functools import wraps
+import multiprocessing as mp
+
 from PyQt4 import (QtCore, QtGui)
 from PyQt4.QtCore import Qt
 import matplotlib.cm as cm
 from PIL import Image
-# from PIL import ImageQt
 import PIL
-import csv
-import multiprocessing as mp
-import time
 from scipy.misc import imsave
 from skimage import exposure
-
 import numpy as np
-
 import matplotlib as mpl
-from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as
-                    FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+
+from matplotlib.backends.backend_qt4agg \
+    import (FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as
+            NavigationToolbar)
+
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 import matplotlib.gridspec as gridspec
@@ -105,7 +107,7 @@ class DPCThread(QtCore.QThread):
         main = DPCWindow.instance
         try:
             ret = dpc.main(pool=self.pool,
-                           display_fcn=lambda *args: self.update_signal.emit(*args),
+                           display_fcn=self.update_signal.emit,
                            load_image=main.load_image,
                            **self.dpc_settings)
             print('DPC finished')
@@ -169,16 +171,16 @@ class MplCanvas(FigureCanvas):
         self._title = title
         if self.axes:
             self.axes.set_title(title, fontdict=self.title_font)
-            #bbox = t.get_window_extent()
-            #bbox = bbox.inverse_transformed(self.figure.transFigure)
-            #self._title_size = bbox.height
-            #self.figure.subplots_adjust(top=1.0 - self._title_size)
+            # bbox = t.get_window_extent()
+            # bbox = bbox.inverse_transformed(self.figure.transFigure)
+            # self._title_size = bbox.height
+            # self.figure.subplots_adjust(top=1.0 - self._title_size)
 
     title = property(_get_title, _set_title)
 
 
 class Label(QtGui.QLabel):
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         super(Label, self).__init__(parent)
         self.rubberBand = QtGui.QRubberBand(QtGui.QRubberBand.Rectangle, self)
         self.origin = QtCore.QPoint()
@@ -206,7 +208,7 @@ class Label(QtGui.QLabel):
         roi_x2 = event.pos().x()
         roi_y2 = event.pos().y()
         main = DPCWindow.instance
-        if ((roi_x1, roi_y1)!=(roi_x2, roi_y2)):
+        if ((roi_x1, roi_y1) != (roi_x2, roi_y2)):
             main.roi_x1_widget.setValue(roi_x1)
             main.roi_y1_widget.setValue(roi_y1)
             main.roi_x2_widget.setValue(roi_x2)
@@ -214,12 +216,13 @@ class Label(QtGui.QLabel):
         else:
             if main.bad_flag != 0:
                 main.bad_pixels_widget.addItem('%d, %d' %
-                (event.pos().x(), event.pos().y()))
+                                               (event.pos().x(),
+                                                event.pos().y()))
                 self.rubberBand.show()
 
 
 class paintLabel(QtGui.QLabel):
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         super(paintLabel, self).__init__(parent)
 
     def paintEvent(self, event):
@@ -249,6 +252,7 @@ class paintLabel(QtGui.QLabel):
 
 class DPCWindow(QtGui.QMainWindow):
     CM_DEFAULT = 'gray'
+
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         DPCWindow.instance = self
@@ -257,13 +261,14 @@ class DPCWindow(QtGui.QMainWindow):
         self._thread = None
         self.ion_data = None
         self.bad_flag = 0
-        self.direction = 1 # 1 for horizontal and -1 for vertical
+        self.direction = 1  # 1 for horizontal and -1 for vertical
         self.crop_x0 = None
         self.crop_x1 = None
         self.crop_y0 = None
         self.crop_y1 = None
         self.set_roi_enabled = False
         self.his_enabled = False
+        self.scan = None
 
         self.gx, self.gy, self.phi, self.a = None, None, None, None
         self.file_widget = QtGui.QLineEdit('Chromosome_9_%05d.tif')
@@ -317,8 +322,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.load_image = load_timepix.load
 
         def format_coord(x, y):
-            col = int(x+0.5)
-            row = int(y+0.5)
+            col = int(x + 0.5)
+            row = int(y + 0.5)
             if row>=0 and row<self.roi_img.shape[0] and col>=0 and col<self.roi_img.shape[1]:
                 z = self.roi_img[row, col]
                 return 'x=%1.4f   y=%1.4f   v=%1.4f'%(x, y, z)
@@ -400,6 +405,7 @@ class DPCWindow(QtGui.QMainWindow):
 
         def ref_close(event):
             self.hide_btn.setChecked(False)
+
         self.ref_grid = QtGui.QGridLayout()
         self.ref_widget = QtGui.QWidget()
         self.ref_widget.closeEvent = ref_close
@@ -417,7 +423,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.ref_grid.addWidget(self.rescale_intensity_btn, 4, 5)
 
         self.file_format_btn = QtGui.QPushButton('Select')
-        #self.file_format_btn.setStyle(WinLayout)
+        # self.file_format_btn.setStyle(WinLayout)
         self.file_format_btn.clicked.connect(self.select_path)
 
         """
@@ -628,46 +634,11 @@ class DPCWindow(QtGui.QMainWindow):
         self.setCentralWidget(self.main_widget)
         self.setWindowTitle('DPC')
 
-        #QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
+        # QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Plastique'))
-        #QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('cde'))
+        # QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('cde'))
 
-        self._settings = {
-            'file_format': [lambda: self.file_format, lambda value: self.file_widget.setText(value)],
-            'dx': [lambda: self.dx, lambda value: setattr(self, 'dx', value)],
-            'dy': [lambda: self.dy, lambda value: setattr(self, 'dy', value)],
-
-            'x1': [lambda: self.roi_x1, lambda value: self.roi_x1_widget.setValue(int(value))],
-            'y1': [lambda: self.roi_y1, lambda value: self.roi_y1_widget.setValue(int(value))],
-            'x2': [lambda: self.roi_x2, lambda value: self.roi_x2_widget.setValue(int(value))],
-            'y2': [lambda: self.roi_y2, lambda value: self.roi_y2_widget.setValue(int(value))],
-
-            'pixel_size': [lambda: self.pixel_size, lambda value: self.pixel_widget.setValue(float(value))],
-            'focus_to_det': [lambda: self.focus, lambda value: self.focus_widget.setValue(float(value))],
-            'energy': [lambda: self.energy, lambda value: self.energy_widget.setValue(float(value))],
-
-            'rows': [lambda: self.rows, lambda value: self.rows_widget.setValue(int(value))],
-            'cols': [lambda: self.cols, lambda value: self.cols_widget.setValue(int(value))],
-            'mosaic_y': [lambda: self.mosaic_y, lambda value: self.mosaic_y_widget.setValue(int(value))],
-            'mosaic_x': [lambda: self.mosaic_x, lambda value: self.mosaic_x_widget.setValue(int(value))],
-            'swap':[lambda: self.swap, lambda value: self.swap_xy.setChecked(int(value)+1)],
-            'reverse_x':[lambda: self.re_x, lambda value: self.reverse_x.setChecked(int(value)-1)],
-            'reverse_y':[lambda: self.re_y, lambda value: self.reverse_y.setChecked(int(value)-1)],
-            'random': [lambda: self.random, lambda value: self.random_processing_opt.setChecked(int(value)+1)],
-            'pyramid': [lambda: self.pyramid, lambda value: self.pyramid_scan.setChecked(int(value)+1)],
-            'hang': [lambda: self.hang, lambda value: self.hanging_opt.setChecked(int(value)+1)],
-            'ref_image': [lambda: self.ref_image, lambda value: self.ref_image_path_QLineEdit.setText(str(value))],
-            'first_image': [lambda: self.first_image, lambda value: self.first_widget.setValue(int(value))],
-            #'processes': [lambda: self.processes, lambda value: self.processes_widget.setValue(int(value))],
-            'bad_pixels': [lambda: self.bad_pixels, lambda value: self.set_bad_pixels(value)],
-            'solver': [lambda: self.solver, lambda value: self.set_solver(value)],
-            'last_path': [lambda: self.last_path, lambda value: setattr(self, 'last_path', value)],
-
-            'scan_number': [lambda: self.scan_number, lambda value: setattr(self, 'scan_number', value)],
-            'use_mds': [lambda: self.use_mds, lambda value: setattr(self, 'use_mds', value)],
-            'filestore_key': [lambda: self.filestore_key, lambda value: setattr(self, 'filestore_key', value)],
-            #'color_map': [lambda: self._color_map, lambda value: setattr(self, 'last_path', value)],
-            }
+        self._init_settings()
 
         for w in [self.pixel_widget, self.focus_widget, self.energy_widget,
                   self.dx_widget, self.dy_widget, self.rows_widget, self.cols_widget,
@@ -687,6 +658,90 @@ class DPCWindow(QtGui.QMainWindow):
             w.setMaximum(9999)
 
         self.load_settings()
+
+    def _init_settings(self):
+        def typed_setter(fcn, type_):
+            @wraps(fcn)
+            def wrapped(value):
+                return fcn(type_(value))
+            return wrapped
+
+        def checked_setter(widget, offset=1):
+            @wraps(widget.setChecked)
+            def wrapped(value):
+                widget.setChecked(int(value) + offset)
+            return wrapped
+
+        def getter(attr):
+            def wrapped():
+                return getattr(self, attr)
+            return wrapped
+
+        def setter(attr):
+            def wrapped(value):
+                return setattr(self, attr, value)
+            return wrapped
+
+
+        self._settings = {
+            'file_format': [getter('file_format'), self.file_widget.setText],
+            'dx': [getter('dx'),
+                   setter('dx')],
+            'dy': [getter('dy'),
+                   setter('dy')],
+
+            'x1': [getter('roi_x1'),
+                   typed_setter(self.roi_x1_widget.setValue, int)],
+            'y1': [getter('roi_y1'),
+                   typed_setter(self.roi_y1_widget.setValue, int)],
+            'x2': [getter('roi_x2'),
+                   typed_setter(self.roi_x2_widget.setValue, int)],
+            'y2': [getter('roi_y2'),
+                   typed_setter(self.roi_y2_widget.setValue, int)],
+
+            'pixel_size': [getter('pixel_size'),
+                           typed_setter(self.pixel_widget.setValue, float)],
+            'focus_to_det': [getter('focus'),
+                             typed_setter(self.focus_widget.setValue, float)],
+            'energy': [getter('energy'),
+                       typed_setter(self.energy_widget.setValue, float)],
+
+            'rows': [getter('rows'),
+                     typed_setter(self.rows_widget.setValue, int)],
+            'cols': [getter('cols'),
+                     typed_setter(self.cols_widget.setValue, int)],
+            'mosaic_y': [getter('mosaic_y'),
+                         typed_setter(self.mosaic_y_widget.setValue, int)],
+            'mosaic_x': [getter('mosaic_x'),
+                         typed_setter(self.mosaic_x_widget.setValue, int)],
+
+            'swap': [getter('swap'),
+                     checked_setter(self.swap_xy, 1)],
+            'reverse_x': [getter('re_x'),
+                          checked_setter(self.reverse_x, -1)],
+            'reverse_y': [getter('re_y'),
+                          checked_setter(self.reverse_y, -1)],
+            'random': [getter('random'),
+                       checked_setter(self.random_processing_opt, 1)],
+            'pyramid': [getter('pyramid'),
+                        checked_setter(self.pyramid_scan, 1)],
+            'hang': [getter('hang'),
+                     checked_setter(self.hanging_opt, 1)],
+            'ref_image': [getter('ref_image'), self.ref_image_path_QLineEdit.setText],
+            'first_image': [getter('first_image'),
+                            typed_setter(self.first_widget.setValue, int)],
+            'processes': [getter('processes'),
+                          typed_setter(self.processes_widget.setValue, int)],
+            'bad_pixels': [getter('bad_pixels'), self.set_bad_pixels],
+            'solver': [getter('solver'), self.set_solver],
+            'last_path': [getter('last_path'), setter('last_path')],
+            'scan_number': [getter('scan_number'), setter('scan_number')],
+            'use_mds': [getter('use_mds'), setter('use_mds')],
+            'filestore_key': [getter('filestore_key'),
+                              setter('filestore_key')],
+            # 'color_map': [lambda: self._color_map,
+            #               setter('last_path')],
+            }
 
     def _use_scan_number_clicked(self, checked):
         self.use_mds = checked
@@ -762,7 +817,10 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def scan_number(self):
-        return int(self.scan_number_text.text())
+        try:
+            return int(self.scan_number_text.text())
+        except ValueError:
+            return None
 
     @scan_number.setter
     def scan_number(self, value):
@@ -1392,7 +1450,6 @@ class DPCWindow(QtGui.QMainWindow):
     def update_color_maps(self):
         size = None
         for i, (cm_name, fn) in enumerate(self.create_cmap_previews()):
-            print('Color map', fn)
             if os.path.exists(fn):
                 self.color_map.addItem(QtGui.QIcon(fn), cm_name)
                 if size is None:
@@ -1430,28 +1487,56 @@ class DPCWindow(QtGui.QMainWindow):
         settings.setValue('geometry', self.geometry())
         settings.setValue('ref_geo', self.ref_widget.geometry())
         settings.setValue('image_type', self.img_type_combobox.currentIndex())
-        settings.setValue('ref_image', str(self.ref_image_path_QLineEdit.text()))
+        settings.setValue('ref_image', self.ref_image_path_QLineEdit.text())
         settings.setValue('first_as_ref', self.first_img_as_ref_checkbox.isChecked())
 
     def load_settings(self):
         settings = self.settings
+        loaded = {}
         for key, (getter, setter) in self._settings.items():
+            value = settings.value(key)
             try:
-                value = settings.value(key).toPyObject()
+                value = value.toPyObject()
             except AttributeError:
-                continue
+                pass
 
             if value is not None:
-                setter(value)
+                try:
+                    setter(value)
+                except Exception as ex:
+                    print('Unable to set value for %s=%s (%s) %s'
+                          '' % (key, value, ex.__class__.__name__, ex))
+                else:
+                    loaded[key] = value
 
         try:
-            self.setGeometry(settings.value('geometry').toPyObject())
-            self.ref_widget.setGeometry(settings.value('ref_geo').toPyObject())
-            self.img_type_combobox.setCurrentIndex(settings.value('image_type').toPyObject())
-            self.ref_image_path_QLineEdit.setText(settings.value('ref_image').toPyObject())
-            self.first_img_as_ref_checkbox.setChecked(settings.value('first_as_ref').toPyObject())
-            self.use_mds.setChecked(settings.value('use_mds').toPyObject())
-        except:
+            self.setGeometry(loaded['geometry'])
+        except Exception as ex:
+            pass
+
+        try:
+            self.ref_widget.setGeometry(loaded['ref_geo'])
+        except Exception as ex:
+            pass
+
+        try:
+            self.img_type_combobox.setCurrentIndex(loaded['image_type'])
+        except Exception as ex:
+            pass
+
+        try:
+            self.ref_image_path_QLineEdit.setText(loaded['ref_image'])
+        except Exception as ex:
+            pass
+
+        try:
+            self.first_img_as_ref_checkbox.setChecked(loaded['first_as_ref'])
+        except Exception as ex:
+            pass
+
+        try:
+            self.use_mds.setChecked(loaded['use_mds'])
+        except Exception as ex:
             pass
 
     def closeEvent(self, event=None):

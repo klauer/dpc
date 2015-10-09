@@ -130,5 +130,3 @@ class Scan(object):
         if self.key:
             for event in db.fetch_events(self.header, fill=False):
                 yield event['data'][self.key]
-
-        raise StopIteration()

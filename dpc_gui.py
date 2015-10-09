@@ -306,6 +306,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.strap_start = QtGui.QSpinBox()
         self.strap_end = QtGui.QSpinBox()
         self.first_widget = QtGui.QSpinBox()
+        self.first_widget.valueChanged.connect(self._first_changed)
+
         self.processes_widget = QtGui.QSpinBox()
         self.processes_widget.setMinimum(1)
         self.processes_widget.setValue(psutil.cpu_count())
@@ -765,9 +767,12 @@ class DPCWindow(QtGui.QMainWindow):
         self.file_widget.setEnabled(not self.use_mds)
         self.filestore_key_combo.setVisible(self.use_mds)
         self.scan_info_lbl.setVisible(self.use_mds)
+        self.select_ref_btn.setEnabled(not self.use_mds)
+        self.ref_image_path_QLineEdit.setEnabled(not self.use_mds)
 
         if self.use_mds:
             self.img_type_combobox.setCurrentIndex(TYPES.index('FileStore'))
+            self.first_img_as_ref_checkbox.setChecked(True)
 
         self.img_type_combobox.setEnabled(not self.use_mds)
 
@@ -849,14 +854,31 @@ class DPCWindow(QtGui.QMainWindow):
     def scan_number(self, value):
         self.scan_number_text.setText(str(value))
 
+    def _first_changed(self, event):
+        if self.use_mds:
+            self.get_ref_from_mds()
+
+    def get_ref_from_mds(self):
+        if self.scan is None:
+            return
+
+        iter_ = iter(self.scan)
+
+        first_image = max((1, self.first_image + 1))
+        ref_image = None
+
+        for i in range(first_image):
+            ref_image = next(iter_)
+
+        if ref_image is not None:
+            self.ref_image_path_QLineEdit.setText(ref_image)
+
     def _filestore_key_changed(self, event):
         key = self.filestore_key
         if self.scan is not None:
             self.scan.key = key
             print('MDS key set:', key)
-            iter_ = iter(self.scan)
-            ref_image = next(iter_)
-            self.ref_image_path_QLineEdit.setText(ref_image)
+            self.get_ref_from_mds()
 
     def on_press(self, event):
         if event.inaxes:

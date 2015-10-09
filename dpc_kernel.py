@@ -129,9 +129,10 @@ def xj_test(filename, i, j, hang, roi=None, bad_pixels=[], **kwargs):
         return 0.0, 0.0, 0.0
 
     wx, wy = im.shape
-    gx = np.sum(im[:wx / 2, :]) - np.sum(im[wx / 2:, :])
-    gy = np.sum(im[:, :wy / 2]) - np.sum(im[:, wy / 2:])
+    gx = np.sum(im[:wx // 2, :]) - np.sum(im[wx // 2:, :])
+    gy = np.sum(im[:, :wy // 2]) - np.sum(im[:, wy // 2:])
     return 0, gx, gy
+
 
 def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
             start_point=[1, 0],
@@ -239,8 +240,8 @@ def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
 
     c = np.zeros((pad * rows, pad * cols), dtype=complex)
 
-    mid_col = pad * cols // 2.0 + 1
-    mid_row = pad * rows // 2.0 + 1
+    mid_col = pad * cols // 2 + 1
+    mid_row = pad * rows // 2 + 1
 
     ax = 2 * np.pi * (np.arange(pad * cols) + 1 - mid_col) / (pad * cols * dx)
     ay = 2 * np.pi * (np.arange(pad * rows) + 1 - mid_row) / (pad * rows * dy)
@@ -426,8 +427,8 @@ def main(file_format='SOFC/SOFC_%05d.tif',
 
     _t1 = time.time()
     elapsed = _t1 - _t0
-    print('Multiprocess elapsed=%.3f frames=%d (per frame %.3fms)' % (elapsed, rows * cols,
-                                                                        1000 * elapsed / (rows * cols)))
+    print('Multiprocess elapsed=%.3f frames=%d (per frame %.3fms)'
+          '' % (elapsed, rows * cols, 1000 * elapsed / (rows * cols)))
 
     dim = len(np.squeeze(gx).shape)
     if dim is not 1:

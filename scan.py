@@ -40,12 +40,14 @@ def get_scan_info(header):
     motors = None
     range_ = None
     scan_args = start_doc.get('scan_args', {})
+    pyramid = False
 
     if scan_type in fly_scans:
         logger.debug('Scan %s (%s) is a fly scan (%s)', start_doc.scan_id,
                      start_doc.uid, scan_type)
         dimensions = start_doc['dimensions']
         motors = start_doc['axes']
+        pyramid = start_doc['fly_type'] == 'pyramid'
         try:
             range_ = start_doc['scan_range']
         except KeyError:
@@ -85,6 +87,7 @@ def get_scan_info(header):
             'motors': motors,
             'range': range_,
             'scan_args': scan_args,
+            'pyramid': pyramid,
             }
 
 
@@ -124,7 +127,8 @@ class Scan(object):
         return '{}(scan_id={})'.format(self.__class__.__name__, self.scan_id)
 
     def __iter__(self):
-        for event in db.fetch_events(self.header, fill=False):
-            yield event['data'][self.key]
+        if self.key:
+            for event in db.fetch_events(self.header, fill=False):
+                yield event['data'][self.key]
 
         raise StopIteration()

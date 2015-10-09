@@ -817,6 +817,8 @@ class DPCWindow(QtGui.QMainWindow):
         print('Scan dimensions', self.scan.dimensions)
         print('Scan range:', scan_range)
 
+        self.pyramid_scan.setChecked(self.scan.pyramid)
+
         if len(self.scan.dimensions) == 1:
             nx, ny = self.scan.dimensions[0], 1
             if scan_range is not None:

@@ -14,7 +14,7 @@ Reference: Yan, H. et al. Quantitative x-ray phase imaging at the nanoscale by m
 Test data is available at:
 https://docs.google.com/file/d/0B3v6W1bQwN_AdjZwWmE3WTNqVnc/edit?usp=sharing
 '''
-from __future__ import print_function
+from __future__ import (print_function, division)
 import os
 import numpy as np
 import matplotlib.pyplot as plt

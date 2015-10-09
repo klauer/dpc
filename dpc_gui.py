@@ -1,4 +1,20 @@
-from __future__ import print_function
+#!/usr/bin/env python
+'''
+Created on May 23, 2013, last modified on June 19, 2013
+@author: Cheng Chang (cheng.chang.ece@gmail.com)
+         Computer Science Group, Computational Science Center
+         Brookhaven National Laboratory
+
+This code is for Differential Phase Contrast (DPC) imaging based on Fourier-shift fitting
+implementation.
+
+Reference: Yan, H. et al. Quantitative x-ray phase imaging at the nanoscale by multilayer
+           Laue lenses. Sci. Rep. 3, 1307; DOI:10.1038/srep01307 (2013).
+
+Test data is available at:
+https://docs.google.com/file/d/0B3v6W1bQwN_AdjZwWmE3WTNqVnc/edit?usp=sharing
+'''
+from __future__ import (print_function, division)
 
 import os
 import sys

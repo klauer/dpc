@@ -61,6 +61,9 @@ def get_scan_info(header):
         scan_args = _eval_scan_args(scan_args['args'])
         motors = [arg.name for arg in scan_args[::5]]
         dimensions = scan_args[3::5]
+        range0 = scan_args[1::5]
+        range1 = scan_args[2::5]
+        range_ = list(zip(range0, range1))
     elif scan_type in step_1d or 'num' in start_doc:
         logger.debug('Scan %s (%s) is a 1D scan (%s)', start_doc.scan_id,
                      start_doc.uid, scan_type)

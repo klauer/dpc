@@ -289,7 +289,8 @@ def main(file_format='SOFC/SOFC_%05d.tif',
          mosaic_y=121,
          load_image=load_timepix.load,
          use_mds=False,
-         scan=None):
+         scan=None,
+         ):
 
     print('DPC')
     print('---')

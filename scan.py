@@ -39,7 +39,7 @@ def get_scan_info(header):
     scan_type = start_doc['scan_type']
     motors = None
     range_ = None
-    command = None
+    scan_args = {}
 
     if scan_type in fly_scans:
         logger.debug('Scan %s (%s) is a fly scan (%s)', start_doc.scan_id,
@@ -47,9 +47,6 @@ def get_scan_info(header):
         dimensions = start_doc['dimensions']
         motors = start_doc['axes']
         scan_args = start_doc['scan_args']
-        command = '\n'.join('%s=%s' % (arg, scan_args[arg])
-                            for arg in scan_args
-                            if arg not in 'detectors')
         try:
             range_ = start_doc['scan_range']
         except KeyError:
@@ -85,7 +82,7 @@ def get_scan_info(header):
             'dimensions': dimensions,
             'motors': motors,
             'range': range_,
-            'command': command,
+            'scan_args': scan_args,
             }
 
 

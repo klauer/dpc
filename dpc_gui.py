@@ -727,13 +727,14 @@ class DPCWindow(QtGui.QMainWindow):
                         checked_setter(self.pyramid_scan, 1)],
             'hang': [getter('hang'),
                      checked_setter(self.hanging_opt, 1)],
-            'ref_image': [getter('ref_image'), self.ref_image_path_QLineEdit.setText],
+            'ref_image': [getter('ref_image'),
+                          self.ref_image_path_QLineEdit.setText],
             'first_image': [getter('first_image'),
                             typed_setter(self.first_widget.setValue, int)],
             'processes': [getter('processes'),
                           typed_setter(self.processes_widget.setValue, int)],
             'bad_pixels': [getter('bad_pixels'), self.set_bad_pixels],
-            'solver': [getter('solver'), self.set_solver],
+            'solver': [getter('solver'), setter('solver')],
             'last_path': [getter('last_path'), setter('last_path')],
             'scan_number': [getter('scan_number'), setter('scan_number')],
             'use_mds': [getter('use_mds'), setter('use_mds')],
@@ -771,7 +772,7 @@ class DPCWindow(QtGui.QMainWindow):
         keys = list(sorted(self.scan.filestore_keys))
         self.filestore_key_combo.setCurrentIndex(keys.index(key))
 
-    def _load_scan_from_mds(self, scan_id):
+    def _load_scan_from_mds(self, scan_id, load_config=True):
         hdrs = DataBroker.find_headers(scan_id=scan_id)
         if len(hdrs) > 1:
             # TODO selection widget
@@ -789,6 +790,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.use_mds = True
 
         if self.scan.dimensions is None or len(self.scan.dimensions) == 0:
+            return
+        elif not load_config:
             return
 
         scan_range = self.scan.range
@@ -809,11 +812,10 @@ class DPCWindow(QtGui.QMainWindow):
         self.cols = nx
         self.rows = ny
 
-        command = self.scan.command
-        self.scan_info_lbl.setText(command)
+        self.scan_info_lbl.setText('Range: {}'.format(scan_range))
 
-    def load_scan_from_mds(self):
-        return self._load_scan_from_mds(self.scan_number)
+    def load_scan_from_mds(self, **kwargs):
+        return self._load_scan_from_mds(self.scan_number, **kwargs)
 
     @property
     def scan_number(self):
@@ -1382,15 +1384,15 @@ class DPCWindow(QtGui.QMainWindow):
         cm_ = str(self.color_map.itemText(index))
         print('Color map set to: %s' % cm_)
         self._color_map = mpl.cm.get_cmap(cm_)
-        try:
-            for im in [self.canvas.imphi, self.canvas.imx, self.canvas.ima,
-                       self.canvas.imy]:
+        for im in ['imphi', 'imx', 'imy', 'ima']:
+            try:
+                im = getattr(self.canvas, im)
                 im.set_cmap(self._color_map)
-        except Exception as ex:
-            print('failed to set color map: (%s) %s' % (ex.__class__.__name__,
-                                                        ex))
-        finally:
-            self.canvas.draw()
+            except Exception as ex:
+                print('failed to set color map: (%s) %s'
+                      '' % (ex.__class__.__name__, ex))
+
+        self.canvas.draw()
 
     def _set_ref_color_map(self, index):
         '''
@@ -1769,7 +1771,8 @@ class DPCWindow(QtGui.QMainWindow):
     def solver(self):
         return SOLVERS[self.solver_widget.currentIndex()]
 
-    def set_solver(self, solver):
+    @solver.setter
+    def solver(self, solver):
         self.solver_widget.setCurrentIndex(SOLVERS.index(solver))
 
     def set_bad_pixels(self, pixels):
@@ -1783,11 +1786,22 @@ class DPCWindow(QtGui.QMainWindow):
     def dpc_settings(self):
         ret = {}
         for key, (getter, setter) in self._settings.items():
-            if key not in ('last_path', 'scan_number', 'filestore_key'):
+            if key not in ('last_path', 'scan_number', 'filestore_key',
+                           'processes'):
                 ret[key] = getter()
         return ret
 
     def start(self):
+        if self.use_mds and self.scan is None:
+            if self.scan_number is not None:
+                self.load_scan_from_mds(load_config=False)
+
+            if self.scan is None:
+                QtGui.QMessageBox.information(self, 'Load scan',
+                                              'Scan not loaded from metadatastore',
+                                              QtGui.QMessageBox.Ok)
+                return
+
         self.reverse_x.setEnabled(False)
         self.reverse_y.setEnabled(False)
         self.swap_xy.setEnabled(False)
@@ -1817,7 +1831,6 @@ class DPCWindow(QtGui.QMainWindow):
             if self.use_mds:
                 thread.dpc_settings['scan'] = self.scan
 
-            # del thread.dpc_settings['processes']
             thread.start()
             self.set_running(True)
 

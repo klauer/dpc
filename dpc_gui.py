@@ -48,7 +48,7 @@ import dpc_kernel as dpc
 import pyspecfile
 
 from databroker import DataBroker
-from scan import Scan
+from hxntools.scan_info import ScanInfo
 
 get_save_filename = QtGui.QFileDialog.getSaveFileName
 
@@ -800,7 +800,7 @@ class DPCWindow(QtGui.QMainWindow):
             print('Multiple headers found...')
 
         hdr = hdrs[0]
-        self.scan = Scan(hdr)
+        self.scan = ScanInfo(hdr)
         selected = self.filestore_key
         self.filestore_key_combo.clear()
         if load_config:

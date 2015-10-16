@@ -1696,7 +1696,7 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def ref_image(self):
-        if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked:
+        if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked or self.use_mds:
             return str(self.ref_image_path_QLineEdit.text())
         else:
             return str(self.file_widget.text()) % self.first_widget.value()

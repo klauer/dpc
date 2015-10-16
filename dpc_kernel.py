@@ -67,6 +67,9 @@ def pil_load(fn):
 
 
 def load_image_filestore(datum_id):
+    if datum_id is None:
+        raise IOError("Image doesn't exist yet")
+
     try:
         return fsapi.retrieve(datum_id)
     except Exception as ex:
@@ -359,7 +362,11 @@ def main(file_format='SOFC/SOFC_%05d.tif',
         print('Filestore has %d images' % (len(image_uids)))
 
         def get_filename(i, j):
-            return image_uids[first_image + i * cols + j]
+            idx = first_image + i * cols + j
+            try:
+                return image_uids[idx]
+            except IndexError:
+                return None
     else:
         def get_filename(i, j):
             frame_num = first_image + i * cols + j

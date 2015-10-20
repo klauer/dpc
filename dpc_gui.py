@@ -5,11 +5,12 @@ Created on May 23, 2013, last modified on June 19, 2013
          Computer Science Group, Computational Science Center
          Brookhaven National Laboratory
 
-This code is for Differential Phase Contrast (DPC) imaging based on Fourier-shift fitting
-implementation.
+This code is for Differential Phase Contrast (DPC) imaging based on
+Fourier-shift fitting implementation.
 
-Reference: Yan, H. et al. Quantitative x-ray phase imaging at the nanoscale by multilayer
-           Laue lenses. Sci. Rep. 3, 1307; DOI:10.1038/srep01307 (2013).
+Reference: Yan, H. et al. Quantitative x-ray phase imaging at the nanoscale by
+           multilayer Laue lenses. Sci. Rep. 3, 1307; DOI:10.1038/srep01307
+           (2013).
 
 Test data is available at:
 https://docs.google.com/file/d/0B3v6W1bQwN_AdjZwWmE3WTNqVnc/edit?usp=sharing
@@ -216,16 +217,18 @@ class Label(QtGui.QLabel):
         self.rubberBand.hide()
         if event.button() == Qt.LeftButton:
             self.origin = QtCore.QPoint(event.pos())
-            self.rubberBand.setGeometry(QtCore.QRect(self.origin, QtCore.QSize()))
+            self.rubberBand.setGeometry(QtCore.QRect(self.origin,
+                                                     QtCore.QSize()))
             self.rubberBand.show()
             roi_x1 = event.pos().x()
             roi_y1 = event.pos().y()
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == QtCore.Qt.NoButton:
-            pos = event.pos()
+        # if event.buttons() == QtCore.Qt.NoButton:
+        #     pos = event.pos()
         if not self.origin.isNull():
-            self.rubberBand.setGeometry(QtCore.QRect(self.origin, event.pos()).normalized())
+            self.rubberBand.setGeometry(QtCore.QRect(self.origin,
+                                                     event.pos()).normalized())
 
     def mouseReleaseEvent(self, event):
         global roi_x2
@@ -351,20 +354,23 @@ class DPCWindow(QtGui.QMainWindow):
         def format_coord(x, y):
             col = int(x + 0.5)
             row = int(y + 0.5)
-            if row>=0 and row<self.roi_img.shape[0] and col>=0 and col<self.roi_img.shape[1]:
+            if (row >= 0 and row < self.roi_img.shape[0] and col >= 0 and col <
+                    self.roi_img.shape[1]):
                 z = self.roi_img[row, col]
-                return 'x=%1.4f   y=%1.4f   v=%1.4f'%(x, y, z)
+                return 'x=%1.4f   y=%1.4f   v=%1.4f' % (x, y, z)
             else:
-                return 'x=%1.4f   y=%1.4f'%(x, y)
+                return 'x=%1.4f   y=%1.4f' % (x, y)
 
         self.rect = Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray',
                               edgecolor='red', linewidth=2)
         self.ref_fig = plt.figure()
-        #self.ref_canvas = MplCanvas(self.ref_fig, width=8, height=10, dpi=50)
+        # self.ref_canvas = MplCanvas(self.ref_fig, width=8, height=10, dpi=50)
         self.ref_canvas = FigureCanvas(self.ref_fig)
-        self.ref_fig.subplots_adjust(top=0.99, left=0.01, right=0.99, bottom=0.04)
+        self.ref_fig.subplots_adjust(top=0.99, left=0.01, right=0.99,
+                                     bottom=0.04)
         self.ref_fig.canvas.mpl_connect('button_press_event', self.on_press)
-        self.ref_fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.ref_fig.canvas.mpl_connect('button_release_event',
+                                        self.on_release)
         self.ref_fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.ax = self.ref_fig.add_subplot(111)
         self.ax.format_coord = format_coord
@@ -387,7 +393,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.line_btn = QtGui.QPushButton('Add')
         self.line_btn.setEnabled(False)
         self.line_btn.clicked.connect(self.add_strap)
-        self.direction_btn = QtGui.QPushButton(u'\N{CLOCKWISE OPEN CIRCLE ARROW} 90\N{DEGREE SIGN}')
+        direction_text = u'\N{CLOCKWISE OPEN CIRCLE ARROW} 90\N{DEGREE SIGN}'
+        self.direction_btn = QtGui.QPushButton(direction_text)
         self.direction_btn.clicked.connect(self.change_direction)
         self.direction_btn.setEnabled(False)
         self.removal_btn = QtGui.QPushButton('Remove')
@@ -406,7 +413,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.cancel_btn.clicked.connect(self.crop_cancel)
 
         # Setting widget (QGridLayout) in the bottom of reference image
-        self.min_lbl= QtGui.QLabel('Min')
+        self.min_lbl = QtGui.QLabel('Min')
         self.max_lbl = QtGui.QLabel('Max')
         self.min_box = QtGui.QSpinBox()
         self.max_box = QtGui.QSpinBox()
@@ -414,18 +421,19 @@ class DPCWindow(QtGui.QMainWindow):
         self.min_box.setMinimum(0)
         self.max_box.setMaximum(self.bin_num)
         self.max_box.setMinimum(0)
-        self.rescale_intensity_btn= QtGui.QPushButton('Apply')
+        self.rescale_intensity_btn = QtGui.QPushButton('Apply')
         self.rescale_intensity_btn.clicked.connect(self.rescale_intensity)
 
         self.badPixelGbox = QtGui.QGroupBox("Bad pixels")
         self.badPixelGridLayout = QtGui.QGridLayout()
         self.badPixelGbox.setLayout(self.badPixelGridLayout)
-        self.bad_pixels_widget = QtGui.QListWidget()
-        # Set the minimum height of the qlistwidget as 1 so that the qlistwidget
-        # is always as as high as its two side buttons
-        self.bad_pixels_widget.setMinimumHeight(1)
-        self.bad_pixels_widget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.bad_pixels_widget.customContextMenuRequested.connect(self._bad_pixels_menu)
+        bpw = self.bad_pixels_widget = QtGui.QListWidget()
+        # Set the minimum height of the qlistwidget as 1 so that the
+        # qlistwidget is always as as high as its two side buttons
+        bpw.setMinimumHeight(1)
+        bpw.setContextMenuPolicy(Qt.CustomContextMenu)
+        bpw.customContextMenuRequested.connect(self._bad_pixels_menu)
+
         self.badPixelGridLayout.addWidget(self.bri_btn, 0, 0)
         self.badPixelGridLayout.addWidget(self.bad_btn, 1, 0)
         self.badPixelGridLayout.addWidget(self.bad_pixels_widget, 0, 1, 2, 1)
@@ -472,17 +480,19 @@ class DPCWindow(QtGui.QMainWindow):
         self.scan_info_lbl.setWordWrap(True)
         self.select_ref_btn = QtGui.QPushButton('Select the reference')
         self.select_ref_btn.clicked.connect(self.select_ref_img)
-        self.img_type_combobox = QtGui.QComboBox()
+        self.img_type_combobox = itc = QtGui.QComboBox()
         for types in TYPES:
-            self.img_type_combobox.addItem(types)
-        self.img_type_combobox.currentIndexChanged.connect(self.load_img_method)
-        self.first_img_as_ref_checkbox = QtGui.QCheckBox("Use as the reference image")
-        self.first_img_as_ref_checkbox.stateChanged.connect(self.first_equal_ref)
+            itc.addItem(types)
+        itc.currentIndexChanged.connect(self.load_img_method)
+
+        self.first_ref_cbox = QtGui.QCheckBox("Use as the reference image")
+        self.first_ref_cbox.stateChanged.connect(self.first_equal_ref)
 
         self.use_scan_number_cb = QtGui.QCheckBox("Read from metadatastore")
         self.use_scan_number_cb.toggled.connect(self._use_scan_number_clicked)
-        self.filestore_key_combo = QtGui.QComboBox()
-        self.filestore_key_combo.currentIndexChanged.connect(self._filestore_key_changed)
+        fs_key_cbox = self.fs_key_cbox = QtGui.QComboBox()
+        fs_key_cbox.currentIndexChanged.connect(self._filestore_key_changed)
+
         self.load_scan_btn = QtGui.QPushButton('Load')
         self.load_scan_btn.clicked.connect(self.load_scan_from_mds)
 
@@ -492,52 +502,49 @@ class DPCWindow(QtGui.QMainWindow):
 
         row = 0
 
+        layout = self.imageSettingGridLayout
         if hxntools is not None:
-            self.imageSettingGridLayout.addWidget(self.scan_number_lbl, row, 0)
-            self.imageSettingGridLayout.addWidget(self.scan_number_text,
-                                                  row, 1)
-            self.imageSettingGridLayout.addWidget(self.load_scan_btn, row, 2)
-            self.imageSettingGridLayout.addWidget(self.use_scan_number_cb,
-                                                  row, 3)
+            layout.addWidget(self.scan_number_lbl, row, 0)
+            layout.addWidget(self.scan_number_text, row, 1)
+            layout.addWidget(self.load_scan_btn, row, 2)
+            layout.addWidget(self.use_scan_number_cb, row, 3)
             row += 1
 
-            self.imageSettingGridLayout.addWidget(self.filestore_key_combo,
-                                                  row, 0)
-            self.imageSettingGridLayout.addWidget(self.scan_info_lbl,
-                                                  row, 1, 1, 3)
+            layout.addWidget(self.fs_key_cbox, row, 0)
+            layout.addWidget(self.scan_info_lbl, row, 1, 1, 3)
             row += 1
 
-        self.imageSettingGridLayout.addWidget(self.img_type_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.img_type_combobox, row, 1)
-        self.imageSettingGridLayout.addWidget(self.pixel_size_lbl, row, 2)
-        self.imageSettingGridLayout.addWidget(self.pixel_widget, row, 3)
+        layout.addWidget(self.img_type_lbl, row, 0)
+        layout.addWidget(self.img_type_combobox, row, 1)
+        layout.addWidget(self.pixel_size_lbl, row, 2)
+        layout.addWidget(self.pixel_widget, row, 3)
 
         row += 1
-        self.imageSettingGridLayout.addWidget(self.file_name_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.file_widget, row, 1, 1, 3)
-        self.imageSettingGridLayout.addWidget(self.file_format_btn, row, 4)
+        layout.addWidget(self.file_name_lbl, row, 0)
+        layout.addWidget(self.file_widget, row, 1, 1, 3)
+        layout.addWidget(self.file_format_btn, row, 4)
 
         row += 1
-        self.imageSettingGridLayout.addWidget(self.first_img_num_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.first_widget, row, 1)
-        self.imageSettingGridLayout.addWidget(self.first_img_as_ref_checkbox, row, 2, 1, 2)
+        layout.addWidget(self.first_img_num_lbl, row, 0)
+        layout.addWidget(self.first_widget, row, 1)
+        layout.addWidget(self.first_ref_cbox, row, 2, 1, 2)
 
         row += 1
-        self.imageSettingGridLayout.addWidget(self.select_ref_btn, row, 0)
-        self.imageSettingGridLayout.addWidget(self.ref_image_path_QLineEdit, row, 1, 1, 3)
+        layout.addWidget(self.select_ref_btn, row, 0)
+        layout.addWidget(self.ref_image_path_QLineEdit, row, 1, 1, 3)
 
         row += 1
-        self.imageSettingGridLayout.addWidget(self.roi_x1_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.roi_x1_widget, row, 1)
-        self.imageSettingGridLayout.addWidget(self.roi_x2_lbl, row, 2)
-        self.imageSettingGridLayout.addWidget(self.roi_x2_widget, row, 3)
-        self.imageSettingGridLayout.addWidget(self.hide_btn, row, 4)
+        layout.addWidget(self.roi_x1_lbl, row, 0)
+        layout.addWidget(self.roi_x1_widget, row, 1)
+        layout.addWidget(self.roi_x2_lbl, row, 2)
+        layout.addWidget(self.roi_x2_widget, row, 3)
+        layout.addWidget(self.hide_btn, row, 4)
 
         row += 1
-        self.imageSettingGridLayout.addWidget(self.roi_y1_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.roi_y1_widget, row, 1)
-        self.imageSettingGridLayout.addWidget(self.roi_y2_lbl, row, 2)
-        self.imageSettingGridLayout.addWidget(self.roi_y2_widget, row, 3)
+        layout.addWidget(self.roi_y1_lbl, row, 0)
+        layout.addWidget(self.roi_y1_widget, row, 1)
+        layout.addWidget(self.roi_y2_lbl, row, 2)
+        layout.addWidget(self.roi_y2_widget, row, 3)
 
         # QGroupBox implementation for experiment parameters
         self.experimentParaGbox = QtGui.QGroupBox("Experiment parameters")
@@ -578,21 +585,23 @@ class DPCWindow(QtGui.QMainWindow):
         self.processes_lbl = QtGui.QLabel('Processes')
         self.random_processing_checkbox = QtGui.QCheckBox("Random mode")
         self.hanging_checkbox = QtGui.QCheckBox("Hanging mode")
-        self.computationParaGridLayout.addWidget(self.solver_method_lbl, 0, 0)
-        self.computationParaGridLayout.addWidget(self.solver_widget, 0, 1)
-        self.computationParaGridLayout.addWidget(self.processes_lbl, 0, 2)
-        self.computationParaGridLayout.addWidget(self.processes_widget, 0, 3)
-        #self.computationParaGridLayout.addWidget(self.random_processing_checkbox, 1, 0)
-        #self.computationParaGridLayout.addWidget(self.hanging_checkbox, 1, 1)
-        self.computationParaGridLayout.addWidget(self.start_widget, 0, 4)
-        self.computationParaGridLayout.addWidget(self.stop_widget, 0, 5)
+
+        layout = self.computationParaGridLayout
+        layout.addWidget(self.solver_method_lbl, 0, 0)
+        layout.addWidget(self.solver_widget, 0, 1)
+        layout.addWidget(self.processes_lbl, 0, 2)
+        layout.addWidget(self.processes_widget, 0, 3)
+        # layout.addWidget(self.random_processing_checkbox, 1, 0)
+        # layout.addWidget(self.hanging_checkbox, 1, 1)
+        layout.addWidget(self.start_widget, 0, 4)
+        layout.addWidget(self.stop_widget, 0, 5)
 
         self.background_remove_qbox = QtGui.QGroupBox("Remove background")
         self.background_remove_layout = QtGui.QGridLayout()
         self.background_remove_qbox.setLayout(self.background_remove_layout)
         self.strap_start_label = QtGui.QLabel('Start')
         self.strap_end_label = QtGui.QLabel('End')
-        self.background_remove_layout.addWidget(self.strap_start_label, 0,0)
+        self.background_remove_layout.addWidget(self.strap_start_label, 0, 0)
         self.background_remove_layout.addWidget(self.strap_start, 0, 1)
         self.background_remove_layout.addWidget(self.strap_end_label, 0, 2)
         self.background_remove_layout.addWidget(self.strap_end, 0, 3)
@@ -603,17 +612,17 @@ class DPCWindow(QtGui.QMainWindow):
 
         self.canvas = MplCanvas(width=10, height=12, dpi=50)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.image_visualization_qbox = QtGui.QGroupBox("Image visualization")
-        self.image_visualization_layout = QtGui.QGridLayout()
-        self.image_visualization_qbox.setLayout(self.image_visualization_layout)
-        self.image_visualization_layout.addWidget(self.toolbar, 0, 0)
-        self.image_visualization_layout.addWidget(self.color_map, 0, 1)
+        self.image_vis_qbox = QtGui.QGroupBox("Image visualization")
+        self.image_vis_layout = QtGui.QGridLayout()
+        self.image_vis_qbox.setLayout(self.image_vis_layout)
+        self.image_vis_layout.addWidget(self.toolbar, 0, 0)
+        self.image_vis_layout.addWidget(self.color_map, 0, 1)
 
         self.canvas_QGridLayout = QtGui.QGridLayout()
         self.canvas_widget = QtGui.QWidget()
         self.canvas_widget.setLayout(self.canvas_QGridLayout)
         self.canvas_QGridLayout.addWidget(self.canvas, 0, 0, 1, 2)
-        self.canvas_QGridLayout.addWidget(self.image_visualization_qbox, 1, 0)
+        self.canvas_QGridLayout.addWidget(self.image_vis_qbox, 1, 0)
         self.canvas_QGridLayout.addWidget(self.background_remove_qbox, 1, 1)
 
         self.crop_widget = QtGui.QWidget()
@@ -621,7 +630,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.crop_widget.setLayout(self.crop_layout)
         self.crop_canvas = MplCanvas(width=8, height=8, dpi=50)
         self.crop_fig = self.crop_canvas.figure
-        self.crop_fig.subplots_adjust(top=0.95, left=0.05, right=0.95, bottom=0.05)
+        self.crop_fig.subplots_adjust(top=0.95, left=0.05, right=0.95,
+                                      bottom=0.05)
         self.crop_ax = self.crop_fig.add_subplot(111)
         self.crop_ax.hold(False)
         self.crop_layout.addWidget(self.crop_canvas, 0, 0, 1, 2)
@@ -651,7 +661,8 @@ class DPCWindow(QtGui.QMainWindow):
         self.swap_xy = QtGui.QAction('Swap x/y', self, checkable=True)
         self.swap_xy.triggered.connect(self.swap_x_y)
         self.swap_xy.setEnabled(False)
-        self.random_processing_opt = QtGui.QAction('Random mode', self, checkable=True)
+        self.random_processing_opt = QtGui.QAction('Random mode', self,
+                                                   checkable=True)
         self.hanging_opt = QtGui.QAction('Hanging mode', self, checkable=True)
         self.pyramid_scan = QtGui.QAction('Pyramid scan', self, checkable=True)
 
@@ -675,10 +686,11 @@ class DPCWindow(QtGui.QMainWindow):
         self._init_settings()
 
         for w in [self.pixel_widget, self.focus_widget, self.energy_widget,
-                  self.dx_widget, self.dy_widget, self.rows_widget, self.cols_widget,
-                  self.roi_x1_widget, self.roi_x2_widget, self.roi_y1_widget, self.roi_y2_widget,
-                  self.first_widget, self.mosaic_x_widget, self.mosaic_y_widget,
-                  self.strap_start, self.strap_end,
+                  self.dx_widget, self.dy_widget, self.rows_widget,
+                  self.cols_widget, self.roi_x1_widget, self.roi_x2_widget,
+                  self.roi_y1_widget, self.roi_y2_widget, self.first_widget,
+                  self.mosaic_x_widget, self.mosaic_y_widget, self.strap_start,
+                  self.strap_end,
                   ]:
             w.setMinimum(0)
             w.setMaximum(int(2 ** 31 - 1))
@@ -715,7 +727,6 @@ class DPCWindow(QtGui.QMainWindow):
             def wrapped(value):
                 return setattr(self, attr, value)
             return wrapped
-
 
         self._settings = {
             'file_format': [getter('file_format'), self.file_widget.setText],
@@ -781,14 +792,14 @@ class DPCWindow(QtGui.QMainWindow):
     def _use_scan_number_clicked(self, checked):
         self.use_mds = checked
         self.file_widget.setEnabled(not self.use_mds)
-        self.filestore_key_combo.setVisible(self.use_mds)
+        self.fs_key_cbox.setVisible(self.use_mds)
         self.scan_info_lbl.setVisible(self.use_mds)
         self.select_ref_btn.setEnabled(not self.use_mds)
         self.ref_image_path_QLineEdit.setEnabled(not self.use_mds)
 
         if self.use_mds:
             self.img_type_combobox.setCurrentIndex(TYPES.index('FileStore'))
-            self.first_img_as_ref_checkbox.setChecked(True)
+            self.first_ref_cbox.setChecked(True)
 
         self.img_type_combobox.setEnabled(not self.use_mds)
 
@@ -805,12 +816,12 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def filestore_key(self):
-        return str(self.filestore_key_combo.currentText())
+        return str(self.fs_key_cbox.currentText())
 
     @filestore_key.setter
     def filestore_key(self, key):
         keys = list(sorted(self.scan.filestore_keys))
-        self.filestore_key_combo.setCurrentIndex(keys.index(key))
+        self.fs_key_cbox.setCurrentIndex(keys.index(key))
 
     def _load_scan_from_mds(self, scan_id, load_config=True):
         hdrs = DataBroker.find_headers(scan_id=scan_id)
@@ -822,14 +833,14 @@ class DPCWindow(QtGui.QMainWindow):
 
         self.scan = ScanInfo(hdr)
         selected = self.filestore_key
-        self.filestore_key_combo.clear()
+        self.fs_key_cbox.clear()
         if load_config:
             self.ref_image_path_QLineEdit.setText('')
 
         for i, key in enumerate(sorted(self.scan.filestore_keys)):
-            self.filestore_key_combo.addItem(key)
+            self.fs_key_cbox.addItem(key)
             if key == selected:
-                self.filestore_key_combo.setCurrentIndex(i)
+                self.fs_key_cbox.setCurrentIndex(i)
 
         self.use_mds = True
 
@@ -933,17 +944,21 @@ class DPCWindow(QtGui.QMainWindow):
                                             int(round(self.crop_x1)),
                                             int(round(self.crop_y0)),
                                             int(round(self.crop_y1))])
-                tfont = {'size':'22', 'weight':'semibold'}
-                self.crop_ax.set_title('ROI will be set as (%d, %d) - (%d, %d)' % (int(round(self.crop_x0)),
-                                                                                   int(round(self.crop_y0)),
-                                                                                   int(round(self.crop_x1)),
-                                                                                   int(round(self.crop_y1))),
+
+                tfont = {'size': '22',
+                         'weight': 'semibold'
+                         }
+
+                msg = ('ROI will be set as (%d, %d) - (%d, %d)' %
+                       (int(round(self.crop_x0)), int(round(self.crop_y0)),
+                        int(round(self.crop_x1)), int(round(self.crop_y1))))
+                self.crop_ax.set_title(msg,
                                        **tfont)
                 self.crop_canvas.draw()
                 self.crop_widget.show()
 
     def on_motion(self, event):
-        if self.set_roi_enabled and event.button==1 and event.inaxes:
+        if self.set_roi_enabled and event.button == 1 and event.inaxes:
             self.rect.set_width(event.xdata - self.crop_x0)
             self.rect.set_height(event.ydata - self.crop_y0)
             self.rect.set_xy((self.crop_x0, self.crop_y0))
@@ -969,17 +984,19 @@ class DPCWindow(QtGui.QMainWindow):
             self.ax.figure.canvas.draw()
             self.set_roi_enabled = False
 
-    def update_display(self, a, gx, gy, phi, flag=None): # ax is a pyplot object
+    def update_display(self, a, gx, gy, phi, flag=None):
+        # ax is a pyplot object
+
         def show_line(ax, line):
             ax.plot(line, '-*')
-            #return mpl.pyplot.show()
+            # return mpl.pyplot.show()
 
-        #def show_line_T(ax, line):
-        #    ax.plot(line)
+        # def show_line_T(ax, line):
+        #     ax.plot(line)
 
         def show_image(ax, image):
-            #return ax.imshow(np.flipud(image.T), interpolation='nearest',
-            #                 origin='upper', cmap=cm.Greys_r)
+            # return ax.imshow(np.flipud(image.T), interpolation='nearest',
+            #                  origin='upper', cmap=cm.Greys_r)
             return ax.imshow(image, interpolation='nearest',
                              origin='upper', cmap=cm.Greys_r)
 
@@ -993,7 +1010,9 @@ class DPCWindow(QtGui.QMainWindow):
                 return ax.imshow(image, interpolation='nearest',
                                  origin='upper', cmap=cm.Greys_r)
 
-        tfont = {'size':'28', 'weight':'semibold'}
+        tfont = {'size': '28',
+                 'weight': 'semibold'
+                 }
 
         plt.hold(True)
         main = DPCWindow.instance
@@ -1005,7 +1024,7 @@ class DPCWindow(QtGui.QMainWindow):
         # Check 2D or 1D mode
         cols_num = main.cols_widget.value()
         rows_num = main.rows_widget.value()
-        oned = (cols_num == 1) or (rows_num ==1)
+        oned = (cols_num == 1) or (rows_num == 1)
 
         if oned is True:
 
@@ -1018,15 +1037,15 @@ class DPCWindow(QtGui.QMainWindow):
 
                 canvas.gx_ax = gx_ax = fig.add_subplot(gs[1, 0])
                 gx_ax.set_title('Phase gradient (x)', **tfont)
-                #canvas.imx = imx = show_image(gx_ax, gx)
+                # canvas.imx = imx = show_image(gx_ax, gx)
                 canvas.imx = imx = show_line(gx_ax, gx)
-                #fig.colorbar(imx)
+                # fig.colorbar(imx)
 
                 canvas.gy_ax = gy_ax = fig.add_subplot(gs[2, 0])
                 gy_ax.set_title('Phase gradient (y)', **tfont)
-                #canvas.imy = imy = show_image(gy_ax, gy)
+                # canvas.imy = imy = show_image(gy_ax, gy)
                 canvas.imy = imy = show_line(gy_ax, gy)
-                #fig.colorbar(imy)
+                # fig.colorbar(imy)
 
             else:
                 gs = gridspec.GridSpec(3, 1)
@@ -1066,23 +1085,23 @@ class DPCWindow(QtGui.QMainWindow):
 
             canvas.a_ax = a_ax = fig.add_subplot(gs[1, 0])
             a_ax.set_title('Absorption', **tfont)
-            #a_data = a / ion_data * ion_data[0]
+            # a_data = a / ion_data * ion_data[0]
             canvas.ima = ima = show_image(a_ax, a)
             fig.colorbar(ima)
             ima.set_cmap(main._color_map)
 
-            if flag == None:
+            if flag is None:
                 canvas.gx_ax = gx_ax = fig.add_subplot(gs[0, 0])
                 gx_ax.set_title('Phase gradient (x)', **tfont)
                 canvas.imx = imx = show_image(gx_ax, gx)
-                #canvas.imx = imx = show_line(gx_ax, gx)
+                # canvas.imx = imx = show_line(gx_ax, gx)
                 fig.colorbar(imx)
                 imx.set_cmap(main._color_map)
 
                 canvas.gy_ax = gy_ax = fig.add_subplot(gs[0, 1])
                 gy_ax.set_title('Phase gradient (y)', **tfont)
                 canvas.imy = imy = show_image(gy_ax, gy)
-                #canvas.imy = imy = show_line(gy_ax, gy)
+                # canvas.imy = imy = show_line(gy_ax, gy)
                 fig.colorbar(imy)
                 imy.set_cmap(main._color_map)
             else:
@@ -1149,7 +1168,9 @@ class DPCWindow(QtGui.QMainWindow):
             strap_gy = gy[self.strap_start.value():self.strap_end.value(), :]
             line_gy = np.mean(strap_gy, axis=0)
             self.gy_r = gy - line_gy
-            self.phi_r = dpc.recon(self.gx_r, self.gy_r, self.dx_widget.value(), self.dy_widget.value())
+            self.phi_r = dpc.recon(self.gx_r, self.gy_r,
+                                   self.dx_widget.value(),
+                                   self.dy_widget.value())
             self.update_display(a, self.gx_r, self.gy_r, self.phi_r)
 
         if self.direction == -1:
@@ -1164,7 +1185,9 @@ class DPCWindow(QtGui.QMainWindow):
             self.gy_r = np.transpose(gy)
             self.gy_r = self.gy_r - line_gy
             self.gy_r = np.transpose(self.gy_r)
-            self.phi_r = dpc.recon(self.gx_r, self.gy_r, self.dx_widget.value(), self.dy_widget.value())
+            self.phi_r = dpc.recon(self.gx_r, self.gy_r,
+                                   self.dx_widget.value(),
+                                   self.dy_widget.value())
             self.update_display(a, self.gx_r, self.gy_r, self.phi_r)
 
     def confirm(self, pressed):
@@ -1193,11 +1216,7 @@ class DPCWindow(QtGui.QMainWindow):
         """
         Enable or disable bad pixels selection by changing the bad_flag value
         """
-        if pressed:
-            self.bad_flag = 1
-        else:
-            self.bad_flag = 0
-
+        self.bad_flag = 1 if pressed else 0
 
     def histgramEqua(self, pressed):
         """
@@ -1205,18 +1224,21 @@ class DPCWindow(QtGui.QMainWindow):
         """
         if pressed:
             self.his_enabled = True
-            self.ref_canvas.ref_im = self.ax.imshow(self.roi_img_equ, interpolation='nearest', origin='upper', cmap=cm.Greys_r)
+            im = self.ax.imshow(self.roi_img_equ, interpolation='nearest',
+                                origin='upper', cmap=cm.Greys_r)
 
         else:
             self.his_enabled = False
-            self.ref_canvas.ref_im = self.ax.imshow(self.roi_img, interpolation='nearest', origin='upper', cmap=cm.Greys_r)
-        self.ref_canvas.ref_im.set_cmap(self._ref_color_map)
+            im = self.ax.imshow(self.roi_img, interpolation='nearest',
+                                origin='upper', cmap=cm.Greys_r)
+        im.set_cmap(self._ref_color_map)
+        self.ref_canvas.ref_im = im
         self.ref_canvas.draw()
 
     """
     def preContrast(self):
         self.contrastImage = self.roi_img.convert('L')
-        #self.contrastImage = self.roi_img
+        # self.contrastImage = self.roi_img
         self.enh = ImageEnhance.Contrast(self.contrastImage)
     """
 
@@ -1224,37 +1246,43 @@ class DPCWindow(QtGui.QMainWindow):
         """
         Stretch or shrink ROI image intensity levels
         """
-        min = self.min_box.value()
-        max = self.max_box.value()
-        roi_array = exposure.rescale_intensity(self.roi_img, in_range=(min, max))
-        self.ax.imshow(roi_array, interpolation='nearest', origin='upper', cmap=self._ref_color_map)
+        min_ = self.min_box.value()
+        max_ = self.max_box.value()
+        roi_array = exposure.rescale_intensity(self.roi_img,
+                                               in_range=(min_, max_))
+        self.ax.imshow(roi_array, interpolation='nearest', origin='upper',
+                       cmap=self._ref_color_map)
         self.ref_canvas.draw()
 
     def calHist(self):
         """
         Calculate the histogram of the image used to select ROI
         """
-        imhist,bins = np.histogram(self.roi_img, bins=self.bin_num, range=(0, self.bin_num), density=True)
+        imhist, bins = np.histogram(self.roi_img, bins=self.bin_num,
+                                    range=(0, self.bin_num), density=True)
         cdf = imhist.cumsum()
         cdf = (self.bin_num-1) * cdf / cdf[-1]
-        #cdf = (self.roi_img_max-self.roi_img_min) * cdf / cdf[-1]
+        # cdf = (self.roi_img_max-self.roi_img_min) * cdf / cdf[-1]
         equalizedImg = np.floor(np.interp(self.roi_img, bins[:-1], cdf))
-        self.roi_img_equ = np.reshape(equalizedImg, self.roi_img.shape, order='C')
+        self.roi_img_equ = np.reshape(equalizedImg, self.roi_img.shape,
+                                      order='C')
 
         # skimage histgram equalization
-        #img = np.array(self.roi_img.getdata(), dtype=np.uint16).reshape(self.roi_img.size[1], self.roi_img.size[0])
-        #equalizedImg = exposure.equalize_hist(img)
-        #scipy.misc.imsave('equalizedImg.tif', equalizedImg)
-
+        # img = np.array(self.roi_img.getdata(),
+        #                dtype=np.uint16).reshape(self.roi_img.size[1],
+        #                                         self.roi_img.size[0])
+        # equalizedImg = exposure.equalize_hist(img)
+        # scipy.misc.imsave('equalizedImg.tif', equalizedImg)
 
     def select_bri_pixels(self):
         """
         Select the bad pixels (pixels with the maximum pixel value)
         """
-        indices = np.where(self.roi_img==self.roi_img.max())
+        indices = np.where(self.roi_img == self.roi_img.max())
         indices_num = indices[0].size
         for i in range(indices_num):
-            self.bad_pixels_widget.addItem('%d, %d' % (indices[1][i], indices[0][i]))
+            item = '%d, %d' % (indices[1][i], indices[0][i])
+            self.bad_pixels_widget.addItem(item)
 
     """
     def change_contrast(self, value):
@@ -1284,8 +1312,10 @@ class DPCWindow(QtGui.QMainWindow):
 
                 top_left_x = pos.x()-10 if pos.x()-10>=0 else 0
                 top_left_y = pos.y()-10 if pos.y()-10>=0 else 0
-                bottom_right_x = pos.x()+10 if pos.x()+10<self.roi_img.size[0] else self.roi_img.size[0]-1
-                bottom_right_y = pos.y()+10 if pos.y()+10<self.roi_img.size[1] else self.roi_img.size[1]-1
+                bottom_right_x = (pos.x()+10 if pos.x()+10<self.roi_img.size[0]
+                                  else self.roi_img.size[0]-1)
+                bottom_right_y = (pos.y()+10 if pos.y()+10<self.roi_img.size[1]
+                                  else self.roi_img.size[1]-1)
 
                 if (pos.y()-10)<0:
                     self.temp_lbl.setAlignment(QtCore.Qt.AlignBottom)
@@ -1298,7 +1328,9 @@ class DPCWindow(QtGui.QMainWindow):
 
                 width = bottom_right_x - top_left_x + 1
                 height = bottom_right_y - top_left_y+ 1
-                img_fraction = self.img_lbl.pixmap().copy(top_left_x, top_left_y, width, height)
+                img_fraction = self.img_lbl.pixmap().copy(top_left_x,
+                                                          top_left_y, width,
+                                                          height)
                 scaled_img_fraction = img_fraction.scaled(width*8, height*8)
                 self.temp_lbl.setPixmap(scaled_img_fraction)
 
@@ -1385,25 +1417,28 @@ class DPCWindow(QtGui.QMainWindow):
         """
         if pressed:
             self.load_img_method()
-            if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked or self.use_mds:
+            not_ref = (self.first_ref_cbox.checkState() == Qt.Unchecked)
+            if not_ref or self.use_mds:
                 ref_path = str(self.ref_image_path_QLineEdit.text())
             else:
-                ref_path = str(self.file_widget.text()) % self.first_widget.value()
+                ref_path = (str(self.file_widget.text()) %
+                            self.first_widget.value())
 
             try:
                 self.roi_img = self.load_image(ref_path)
                 self.calHist()
-                self.ref_canvas.ref_im = self.ax.imshow(self.roi_img,
-                                                        interpolation='nearest',
-                                                        origin='upper',
-                                                        cmap=cm.Greys_r)
-                self.ref_canvas.ref_im.set_cmap(self._ref_color_map)
+                ref_im = self.ax.imshow(self.roi_img,
+                                        interpolation='nearest',
+                                        origin='upper',
+                                        cmap=cm.Greys_r)
+                ref_im.set_cmap(self._ref_color_map)
+                self.ref_canvas.ref_im = ref_im
                 self.ref_widget.show()
                 self.ref_canvas.draw()
             except Exception as ex:
-                e = sys.exc_info()[1]
-                QtGui.QMessageBox.information(self, 'Read error',
-                                              '''Could not read the reference image! \r (%s) %s''' % (ex.__class__.__name__, ex),
+                msg = ('Could not read the reference image! \r (%s) %s'
+                       '' % (ex.__class__.__name__, ex))
+                QtGui.QMessageBox.information(self, 'Read error', msg,
                                               QtGui.QMessageBox.Ok)
                 self.hide_btn.setChecked(False)
 
@@ -1553,7 +1588,7 @@ class DPCWindow(QtGui.QMainWindow):
         settings.setValue('ref_geo', self.ref_widget.geometry())
         settings.setValue('image_type', self.img_type_combobox.currentIndex())
         settings.setValue('ref_image', self.ref_image_path_QLineEdit.text())
-        settings.setValue('first_as_ref', self.first_img_as_ref_checkbox.isChecked())
+        settings.setValue('first_as_ref', self.first_ref_cbox.isChecked())
 
     def load_settings(self):
         settings = self.settings
@@ -1595,7 +1630,7 @@ class DPCWindow(QtGui.QMainWindow):
             pass
 
         try:
-            self.first_img_as_ref_checkbox.setChecked(loaded['first_as_ref'])
+            self.first_ref_cbox.setChecked(loaded['first_as_ref'])
         except Exception as ex:
             pass
 
@@ -1716,7 +1751,7 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def ref_image(self):
-        if self.first_img_as_ref_checkbox.checkState() == Qt.Unchecked or self.use_mds:
+        if self.first_ref_cbox.checkState() == Qt.Unchecked or self.use_mds:
             return str(self.ref_image_path_QLineEdit.text())
         else:
             return str(self.file_widget.text()) % self.first_widget.value()
@@ -1749,7 +1784,8 @@ class DPCWindow(QtGui.QMainWindow):
 
     def _bad_pixels_menu(self, pos):
         def add():
-            s, ok = QtGui.QInputDialog.getText(self, 'Position?', 'Position in the format: x, y')
+            msg = 'Position in the format: x, y'
+            s, ok = QtGui.QInputDialog.getText(self, 'Position?', msg)
             if ok:
                 s = str(s)
                 x, y = s.split(',')
@@ -1767,14 +1803,15 @@ class DPCWindow(QtGui.QMainWindow):
             self.bad_pixels_widget.clear()
 
         self.menu = menu = QtGui.QMenu()
-        add_action = menu.addAction('&Add', add)
-        remove_action = menu.addAction('&Remove', remove)
-        clear_action = menu.addAction('&Clear', clear)
+        menu.addAction('&Add', add)
+        menu.addAction('&Remove', remove)
+        menu.addAction('&Clear', clear)
 
         menu.popup(self.bad_pixels_widget.mapToGlobal(pos))
 
     def load_from_spec_scan(self):
-        filename = QtGui.QFileDialog.getOpenFileName(self, 'Scan filename', self.last_path, '*.spec')
+        filename = QtGui.QFileDialog.getOpenFileName(self, 'Scan filename',
+                                                     self.last_path, '*.spec')
         if not filename:
             return
 
@@ -1790,7 +1827,9 @@ class DPCWindow(QtGui.QMainWindow):
             scan_info.sort()
             print('\n'.join(scan_info))
 
-            s, ok = QtGui.QInputDialog.getItem(self, 'Scan selection', 'Scan number?', scan_info, 0, False)
+            s, ok = QtGui.QInputDialog.getItem(self, 'Scan selection',
+                                               'Scan number?', scan_info, 0,
+                                               False)
             if ok:
                 print('Selected scan', s)
                 number = int(s.split(' ')[0])
@@ -1803,9 +1842,11 @@ class DPCWindow(QtGui.QMainWindow):
 
                 try:
                     ion1_index = sd['columns'].index('Ion1')
-                    self.ion_data = np.array([line[ion1_index] for line in sd['lines']])
+                    self.ion_data = np.array([line[ion1_index]
+                                              for line in sd['lines']])
                 except Exception as ex:
-                    print('Failed loading Ion1 data (%s) %s' % (ex, ex.__class__.__name__))
+                    print('Failed loading Ion1 data (%s) %s'
+                          '' % (ex, ex.__class__.__name__))
                     self.ion_data = None
 
                 print('First timepix image:', timepix_first_image)
@@ -1860,8 +1901,8 @@ class DPCWindow(QtGui.QMainWindow):
                 self.load_scan_from_mds(load_config=False)
 
             if self.scan is None:
-                QtGui.QMessageBox.information(self, 'Load scan',
-                                              'Scan not loaded from metadatastore',
+                not_loaded = 'Scan not loaded from metadatastore'
+                QtGui.QMessageBox.information(self, 'Load scan', not_loaded,
                                               QtGui.QMessageBox.Ok)
                 return
 

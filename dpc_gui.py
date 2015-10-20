@@ -21,11 +21,13 @@ import os
 import sys
 import csv
 import time
+from datetime import datetime
 from functools import wraps
 import multiprocessing as mp
 
 from PyQt4 import (QtCore, QtGui)
 from PyQt4.QtCore import Qt
+from PyQt4.QtGui import QInputDialog
 import matplotlib.cm as cm
 from PIL import Image
 import PIL
@@ -61,6 +63,7 @@ except ImportError as ex:
 
 
 get_save_filename = QtGui.QFileDialog.getSaveFileName
+get_open_filename = QtGui.QFileDialog.getOpenFileName
 
 
 SOLVERS = ['Nelder-Mead',
@@ -825,11 +828,22 @@ class DPCWindow(QtGui.QMainWindow):
 
     def _load_scan_from_mds(self, scan_id, load_config=True):
         hdrs = DataBroker.find_headers(scan_id=scan_id)
-        if len(hdrs) > 1:
-            # TODO selection widget
-            print('Multiple headers found...')
+        if len(hdrs) == 1:
+            hdr = hdrs[0]
+        else:
+            def get_ts(hdr):
+                return datetime.fromtimestamp(hdr['start']['time'])
 
-        hdr = hdrs[0]
+            scans = ['{} ({})'.format(get_ts(hdr), hdr['start']['uid'])
+                     for hdr in hdrs]
+            print('Multiple headers found...')
+            s, ok = QInputDialog.getItem(self, 'Multiple scans',
+                                         'Which scan?', scans, 0, False)
+            if ok:
+                index = scans.index(str(s))
+                hdr = hdrs[index]
+            else:
+                return
 
         self.scan = ScanInfo(hdr)
         selected = self.filestore_key
@@ -1349,7 +1363,7 @@ class DPCWindow(QtGui.QMainWindow):
         Select path and initiate file format for the data
 
         """
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file', '/home')
+        fname = get_open_filename(self, 'Open file', '/home')
         fname = str(fname)
         if fname != '':
             index1 = fname.rfind('.')
@@ -1405,7 +1419,7 @@ class DPCWindow(QtGui.QMainWindow):
         Select the reference image and record its location and name
 
         """
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file', '/home')
+        fname = get_open_filename(self, 'Open file', '/home')
         fname = str(fname)
         if fname != '':
             self.ref_image_path_QLineEdit.setText(fname)
@@ -1785,7 +1799,7 @@ class DPCWindow(QtGui.QMainWindow):
     def _bad_pixels_menu(self, pos):
         def add():
             msg = 'Position in the format: x, y'
-            s, ok = QtGui.QInputDialog.getText(self, 'Position?', msg)
+            s, ok = QInputDialog.getText(self, 'Position?', msg)
             if ok:
                 s = str(s)
                 x, y = s.split(',')
@@ -1810,8 +1824,8 @@ class DPCWindow(QtGui.QMainWindow):
         menu.popup(self.bad_pixels_widget.mapToGlobal(pos))
 
     def load_from_spec_scan(self):
-        filename = QtGui.QFileDialog.getOpenFileName(self, 'Scan filename',
-                                                     self.last_path, '*.spec')
+        filename = get_open_filename(self, 'Scan filename', self.last_path,
+                                     '*.spec')
         if not filename:
             return
 
@@ -1827,9 +1841,8 @@ class DPCWindow(QtGui.QMainWindow):
             scan_info.sort()
             print('\n'.join(scan_info))
 
-            s, ok = QtGui.QInputDialog.getItem(self, 'Scan selection',
-                                               'Scan number?', scan_info, 0,
-                                               False)
+            s, ok = QInputDialog.getItem(self, 'Scan selection',
+                                         'Scan number?', scan_info, 0, False)
             if ok:
                 print('Selected scan', s)
                 number = int(s.split(' ')[0])
@@ -1896,6 +1909,8 @@ class DPCWindow(QtGui.QMainWindow):
         return ret
 
     def start(self):
+        self.save_settings()
+
         if self.use_mds and self.scan is None:
             if self.scan_number is not None:
                 self.load_scan_from_mds(load_config=False)

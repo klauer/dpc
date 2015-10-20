@@ -47,8 +47,17 @@ import load_timepix
 import dpc_kernel as dpc
 import pyspecfile
 
-from databroker import DataBroker
-from hxntools.scan_info import ScanInfo
+try:
+    import hxntools
+    from hxntools.scan_info import ScanInfo
+    from hxntools.scan_monitor import HxnScanMonitor
+    from databroker import DataBroker
+except ImportError as ex:
+    print('[!] Unable to import hxntools-related packages some features will '
+          'be unavailable')
+    print('[!] (import error: {})'.format(ex))
+    hxntools = None
+
 
 get_save_filename = QtGui.QFileDialog.getSaveFileName
 
@@ -469,6 +478,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.img_type_combobox.currentIndexChanged.connect(self.load_img_method)
         self.first_img_as_ref_checkbox = QtGui.QCheckBox("Use as the reference image")
         self.first_img_as_ref_checkbox.stateChanged.connect(self.first_equal_ref)
+
         self.use_scan_number_cb = QtGui.QCheckBox("Read from metadatastore")
         self.use_scan_number_cb.toggled.connect(self._use_scan_number_clicked)
         self.filestore_key_combo = QtGui.QComboBox()
@@ -481,16 +491,22 @@ class DPCWindow(QtGui.QMainWindow):
         self.scan_number_text = QtGui.QLineEdit('3449')
 
         row = 0
-        self.imageSettingGridLayout.addWidget(self.scan_number_lbl, row, 0)
-        self.imageSettingGridLayout.addWidget(self.scan_number_text, row, 1)
-        self.imageSettingGridLayout.addWidget(self.load_scan_btn, row, 2)
-        self.imageSettingGridLayout.addWidget(self.use_scan_number_cb, row, 3)
 
-        row += 1
-        self.imageSettingGridLayout.addWidget(self.filestore_key_combo, row, 0)
-        self.imageSettingGridLayout.addWidget(self.scan_info_lbl, row, 1, 1, 3)
+        if hxntools is not None:
+            self.imageSettingGridLayout.addWidget(self.scan_number_lbl, row, 0)
+            self.imageSettingGridLayout.addWidget(self.scan_number_text,
+                                                  row, 1)
+            self.imageSettingGridLayout.addWidget(self.load_scan_btn, row, 2)
+            self.imageSettingGridLayout.addWidget(self.use_scan_number_cb,
+                                                  row, 3)
+            row += 1
 
-        row += 1
+            self.imageSettingGridLayout.addWidget(self.filestore_key_combo,
+                                                  row, 0)
+            self.imageSettingGridLayout.addWidget(self.scan_info_lbl,
+                                                  row, 1, 1, 3)
+            row += 1
+
         self.imageSettingGridLayout.addWidget(self.img_type_lbl, row, 0)
         self.imageSettingGridLayout.addWidget(self.img_type_combobox, row, 1)
         self.imageSettingGridLayout.addWidget(self.pixel_size_lbl, row, 2)
@@ -778,6 +794,9 @@ class DPCWindow(QtGui.QMainWindow):
 
     @property
     def use_mds(self):
+        if hxntools is None:
+            return False
+
         return bool(self.use_scan_number_cb.isChecked())
 
     @use_mds.setter
@@ -800,6 +819,7 @@ class DPCWindow(QtGui.QMainWindow):
             print('Multiple headers found...')
 
         hdr = hdrs[0]
+
         self.scan = ScanInfo(hdr)
         selected = self.filestore_key
         self.filestore_key_combo.clear()

@@ -51,10 +51,10 @@ import dpc_kernel as dpc
 import pyspecfile
 
 try:
-    import hxntools
     from hxntools.scan_info import ScanInfo
     from hxntools.scan_monitor import HxnScanMonitor
     from databroker import DataBroker
+    import hxntools
 except ImportError as ex:
     print('[!] Unable to import hxntools-related packages some features will '
           'be unavailable')
@@ -679,6 +679,15 @@ class DPCWindow(QtGui.QMainWindow):
         option_menu.addAction(self.hanging_opt)
         option_menu.addAction(self.pyramid_scan)
 
+        if hxntools is not None:
+            self.monitor_scans = QtGui.QAction('Monitor acquired scans', self,
+                                               checkable=True)
+            self.monitor_scans.triggered.connect(self.monitor_toggled)
+            self.scan_monitor = HxnScanMonitor(uid_pv)
+            self.scan_monitor.connect('start', self.bs_scan_started)
+            self.scan_monitor.connect('stop', self.bs_scan_finished)
+            option_menu.addAction(self.monitor_scans)
+
         self.setCentralWidget(self.main_widget)
         self.setWindowTitle('DPC')
 
@@ -707,6 +716,24 @@ class DPCWindow(QtGui.QMainWindow):
             w.setMaximum(9999)
 
         self.load_settings()
+
+    def monitor_toggled(self):
+        pass
+
+    def bs_scan_started(self, uid, hxn_info=None, **hdr):
+        if not self.monitoring:
+            return
+
+        print('Scan started')
+        self.set_scan_from_scaninfo(ScanInfo(hdr), load_config=True)
+
+    def bs_scan_finished(self, uid, hxn_info=None, **hdr):
+        if not self.monitoring:
+            return
+
+        print('Scan finished')
+        self.stop()
+        self.set_scan_from_scaninfo(ScanInfo(hdr), load_config=True)
 
     def _init_settings(self):
         def typed_setter(fcn, type_):
@@ -845,7 +872,10 @@ class DPCWindow(QtGui.QMainWindow):
             else:
                 return
 
-        self.scan = ScanInfo(hdr)
+        self.set_scan_from_scaninfo(ScanInfo(hdr), load_config=load_config)
+
+    def set_scan_from_scaninfo(self, scan, load_config=True):
+        self.scan = scan
         selected = self.filestore_key
         self.fs_key_cbox.clear()
         if load_config:
@@ -1718,6 +1748,10 @@ class DPCWindow(QtGui.QMainWindow):
         return self.mosaic_y_widget.value()
 
     @property
+    def monitoring(self):
+        return self.monitor_scans.isChecked()
+
+    @property
     def random(self):
         if self.random_processing_opt.isChecked():
             return 1
@@ -1986,6 +2020,11 @@ class DPCWindow(QtGui.QMainWindow):
 
 
 if __name__ == '__main__':
+    try:
+        uid_pv = sys.argv[1]
+    except IndexError:
+        uid_pv = 'XF:03IDC-ES{BS-Scan}UID-I'
+
     app = QtGui.QApplication(sys.argv)
     # app.setAttribute(Qt.AA_X11InitThreads)
 

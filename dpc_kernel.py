@@ -84,9 +84,12 @@ def load_file(load_image, fn, hang, roi=None, bad_pixels=[], zip_file=None):
     """
     if load_image == load_image_filestore:
         # ignore hanging settings, just hit filestore
-        im = load_image(fn)
+        try:
+            im = load_image(fn)
+        except Exception:
+            return None, None, None
     else:
-        if hang is 1:
+        if hang == 1:
             while(not os.path.exists(fn)):
                 time.sleep(0.1)
             else:
@@ -168,8 +171,11 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
         print('%s' % ie)
         return 0.0, 0.0, 0.0
 
-    #vx = fmin(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
-    #          maxiter=max_iters, maxfun=max_iters, disp=0)
+    if img is None:
+        return 1e-5, 1e-5, 1e-5
+
+    # vx = fmin(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
+    #           maxiter=max_iters, maxfun=max_iters, disp=0)
     res = minimize(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
                    method=solver, tol=1e-6,
                    options=dict(maxiter=max_iters))
@@ -397,7 +403,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
 
             try:
 
-                if display_fcn is not None and random is 1:
+                if display_fcn is not None and random == 1:
                     np.random.shuffle(args)
 
                 results = [pool.apply_async(fcn, arg, kwds=dpc_settings)
@@ -417,7 +423,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                                     j = mcols - j - 1
 
                                 a[i, j] = _a
-                                if swap is 1:
+                                if swap == 1:
                                     gy[i, j] = _gx * gx_factor
                                     gx[i, j] = _gy * gy_factor
                                 else:
@@ -443,8 +449,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
           '' % (elapsed, rows * cols, 1000 * elapsed / (rows * cols)))
 
     dim = len(np.squeeze(gx).shape)
-    if dim is not 1:
-
+    if dim != 1:
         phi = recon(gx, gy, dx, dy)
         t1 = time.time()
         print('Elapsed', t1 - t0)

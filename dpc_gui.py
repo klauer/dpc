@@ -75,7 +75,7 @@ SOLVERS = ['Nelder-Mead',
            'L-BFGS-B',
            'TNC',
            'COBYLA',
-           'SLS   QP',
+           'SLS-QP',
            'dogleg',
            'trust-ncg',
            ]
@@ -122,6 +122,16 @@ def brush_to_color_tuple(brush):
     r, g, b, a = brush.color().getRgbF()
     return (r, g, b)
 
+class MyStream(QtCore.QObject):
+    message = QtCore.pyqtSignal(str)
+    def __init__(self, parent=None):
+        super(MyStream, self).__init__(parent)
+
+    def write(self, message):
+        self.message.emit(str(message))
+
+    def flush(self):
+        pass
 
 class DPCThread(QtCore.QThread):
     def __init__(self, canvas, pool=None, parent=None):
@@ -155,6 +165,7 @@ class DPCThread(QtCore.QThread):
             main.hanging_opt.setEnabled(True)
             main.random_processing_opt.setEnabled(True)
             main.pyramid_scan.setEnabled(True)
+            main.pad_recon.setEnabled(True)
             # main.direction_btn.setEnabled(True)
             # main.removal_btn.setEnabled(True)
             # main.confirm_btn.setEnabled(True)
@@ -304,6 +315,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.gx, self.gy, self.phi, self.a = None, None, None, None
         self.file_widget = QtGui.QLineEdit('Chromosome_9_%05d.tif')
         self.file_widget.setFixedWidth(350)
+        self.save_path_widget = QtGui.QLineEdit('/home')
         self.focus_widget = QtGui.QDoubleSpinBox()
 
         self.dx_widget = QtGui.QDoubleSpinBox()
@@ -599,6 +611,16 @@ class DPCWindow(QtGui.QMainWindow):
         layout.addWidget(self.start_widget, 0, 4)
         layout.addWidget(self.stop_widget, 0, 5)
 
+        """
+        QGroupBox implementation for console information
+        """
+        self.consoleInfoGbox = QtGui.QGroupBox("Console information")
+        self.consoleInfoGridLayout = QtGui.QGridLayout()
+        self.consoleInfoGbox.setLayout(self.consoleInfoGridLayout)
+        self.console_info = QtGui.QTextEdit(self)
+        self.console_info.setReadOnly(True)
+        self.consoleInfoGridLayout.addWidget(self.console_info)
+
         self.background_remove_qbox = QtGui.QGroupBox("Remove background")
         self.background_remove_layout = QtGui.QGridLayout()
         self.background_remove_qbox.setLayout(self.background_remove_layout)
@@ -649,6 +671,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.main_grid.addWidget(self.imageSettingGbox, 0, 0)
         self.main_grid.addWidget(self.experimentParaGbox, 1, 0)
         self.main_grid.addWidget(self.computationParaGbox, 2, 0)
+        self.main_grid.addWidget(self.consoleInfoGbox, 3, 0)
 
         # Add menu
         self.menu = self.menuBar()
@@ -668,6 +691,7 @@ class DPCWindow(QtGui.QMainWindow):
                                                    checkable=True)
         self.hanging_opt = QtGui.QAction('Hanging mode', self, checkable=True)
         self.pyramid_scan = QtGui.QAction('Pyramid scan', self, checkable=True)
+        self.pad_recon = QtGui.QAction('Padding mode', self, checkable=True)
 
         file_menu = self.menu.addMenu('File')
         file_menu.addAction(self.save_result)
@@ -678,6 +702,7 @@ class DPCWindow(QtGui.QMainWindow):
         option_menu.addAction(self.random_processing_opt)
         option_menu.addAction(self.hanging_opt)
         option_menu.addAction(self.pyramid_scan)
+        option_menu.addAction(self.pad_recon)
 
         if hxntools is not None:
             self.monitor_scans = QtGui.QAction('Monitor acquired scans', self,
@@ -760,6 +785,7 @@ class DPCWindow(QtGui.QMainWindow):
 
         self._settings = {
             'file_format': [getter('file_format'), self.file_widget.setText],
+            'save_path': [getter('save_path'), self.save_path_widget.setText],
             'dx': [getter('dx'),
                    setter('dx')],
             'dy': [getter('dy'),
@@ -800,6 +826,7 @@ class DPCWindow(QtGui.QMainWindow):
                        checked_setter(self.random_processing_opt, 1)],
             'pyramid': [getter('pyramid'),
                         checked_setter(self.pyramid_scan, 1)],
+            'pad': [getter('pad'), checked_setter(self.pad_recon, 1)],
             'hang': [getter('hang'),
                      checked_setter(self.hanging_opt, 1)],
             'ref_image': [getter('ref_image'),
@@ -1076,7 +1103,7 @@ class DPCWindow(QtGui.QMainWindow):
                 gs = gridspec.GridSpec(3, 1)
 
                 canvas.a_ax = a_ax = fig.add_subplot(gs[0, 0])
-                a_ax.set_title('Absorption', **tfont)
+                a_ax.set_title('Intensity', **tfont)
                 canvas.ima = ima = show_line(a_ax, a)
 
                 canvas.gx_ax = gx_ax = fig.add_subplot(gs[1, 0])
@@ -1095,7 +1122,7 @@ class DPCWindow(QtGui.QMainWindow):
                 gs = gridspec.GridSpec(3, 1)
 
                 canvas.a_ax = a_ax = fig.add_subplot(gs[0, 0])
-                a_ax.set_title('Absorption', **tfont)
+                a_ax.set_title('Intensity', **tfont)
                 canvas.ima = ima = show_line(a_ax, a.T)
 
                 canvas.gx_ax = gx_ax = fig.add_subplot(gs[1, 0])
@@ -1128,7 +1155,7 @@ class DPCWindow(QtGui.QMainWindow):
             '''
 
             canvas.a_ax = a_ax = fig.add_subplot(gs[1, 0])
-            a_ax.set_title('Absorption', **tfont)
+            a_ax.set_title('Intensity', **tfont)
             # a_data = a / ion_data * ion_data[0]
             canvas.ima = ima = show_image(a_ax, a)
             fig.colorbar(ima)
@@ -1412,11 +1439,13 @@ class DPCWindow(QtGui.QMainWindow):
 
         """
         global a, gx, gy, phi
-        path = get_save_filename(self, 'Select path', '/home')
+        default_path = str(self.save_path_widget.text())
+        path = get_save_filename(self, 'Select path', default_path)
         path = str(path)
+        self.save_path_widget.setText(path)
         if path != '':
             a_path = path + '_a.txt'
-            print(a_path)
+            #print(a_path)
             np.savetxt(a_path, a)
             gx_path = path + '_gx.txt'
             np.savetxt(gx_path, gx)
@@ -1712,6 +1741,10 @@ class DPCWindow(QtGui.QMainWindow):
         return str(self.file_widget.text())
 
     @property
+    def save_path(self):
+        return str(self.save_path_widget.text())
+
+    @property
     def pixel_size(self):
         return self.pixel_widget.value()
 
@@ -1754,6 +1787,13 @@ class DPCWindow(QtGui.QMainWindow):
     @property
     def random(self):
         if self.random_processing_opt.isChecked():
+            return 1
+        else:
+            return -1
+
+    @property
+    def pad(self):
+        if self.pad_recon.isChecked():
             return 1
         else:
             return -1
@@ -1961,6 +2001,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.hanging_opt.setEnabled(False)
         self.random_processing_opt.setEnabled(False)
         self.pyramid_scan.setEnabled(False)
+        self.pad_recon.setEnabled(False)
         self.save_result.setEnabled(False)
         self.canvas_widget.show()
         self.line_btn.setEnabled(False)
@@ -2018,6 +2059,11 @@ class DPCWindow(QtGui.QMainWindow):
             im.save('%s_%s.tif' % (filename, name))
             np.savetxt('%s_%s.txt' % (filename, name), im)
 
+    @QtCore.pyqtSlot(str)
+    def on_myStream_message(self, message):
+        self.console_info.moveCursor(QtGui.QTextCursor.End)
+        self.console_info.insertPlainText(message)
+
 
 if __name__ == '__main__':
     try:
@@ -2032,4 +2078,8 @@ if __name__ == '__main__':
     window.show()
     app.installEventFilter(window)
 
+    myStream = MyStream()
+    myStream.message.connect(window.on_myStream_message)
+
+    sys.stdout = myStream
     sys.exit(app.exec_())

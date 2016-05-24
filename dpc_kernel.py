@@ -305,6 +305,8 @@ def main(file_format='SOFC/SOFC_%05d.tif',
          load_image=load_timepix.load,
          use_mds=False,
          scan=None,
+         save_path=None,
+         pad=False
          ):
 
     print('DPC')
@@ -450,7 +452,12 @@ def main(file_format='SOFC/SOFC_%05d.tif',
 
     dim = len(np.squeeze(gx).shape)
     if dim != 1:
-        phi = recon(gx, gy, dx, dy)
+        if pad == True:
+            phi = recon(gx, gy, dx, dy, 3)
+            print("Padding mode enabled!")
+        else:
+            phi = recon(gx, gy, dx, dy)
+            print("Padding mode disabled!")
         t1 = time.time()
         print('Elapsed', t1 - t0)
 

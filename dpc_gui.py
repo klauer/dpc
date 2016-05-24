@@ -51,15 +51,18 @@ import dpc_kernel as dpc
 import pyspecfile
 
 try:
+    import hxntools
+    import hxntools.handlers
     from hxntools.scan_info import ScanInfo
     from hxntools.scan_monitor import HxnScanMonitor
     from databroker import DataBroker
-    import hxntools
 except ImportError as ex:
     print('[!] Unable to import hxntools-related packages some features will '
           'be unavailable')
     print('[!] (import error: {})'.format(ex))
     hxntools = None
+else:
+    hxntools.handlers.register()
 
 
 get_save_filename = QtGui.QFileDialog.getSaveFileName
@@ -881,7 +884,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.fs_key_cbox.setCurrentIndex(keys.index(key))
 
     def _load_scan_from_mds(self, scan_id, load_config=True):
-        hdrs = DataBroker.find_headers(scan_id=scan_id)
+        hdrs = DataBroker(scan_id=scan_id)
         if len(hdrs) == 1:
             hdr = hdrs[0]
         else:

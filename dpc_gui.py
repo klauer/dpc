@@ -21,6 +21,7 @@ import os
 import sys
 import csv
 import time
+import logging
 from datetime import datetime
 from functools import wraps
 import multiprocessing as mp
@@ -65,6 +66,7 @@ else:
     hxntools.handlers.register()
 
 
+logger = logging.getLogger(__name__)
 get_save_filename = QtGui.QFileDialog.getSaveFileName
 get_open_filename = QtGui.QFileDialog.getOpenFileName
 
@@ -916,6 +918,7 @@ class DPCWindow(QtGui.QMainWindow):
             if key == selected:
                 self.fs_key_cbox.setCurrentIndex(i)
 
+        self.scan.key = self.filestore_key
         self.use_mds = True
 
         if self.scan.dimensions is None or len(self.scan.dimensions) == 0:
@@ -1512,6 +1515,7 @@ class DPCWindow(QtGui.QMainWindow):
                 self.ref_widget.show()
                 self.ref_canvas.draw()
             except Exception as ex:
+                logger.error('Reference image read failed', exc_info=ex)
                 msg = ('Could not read the reference image! \r (%s) %s'
                        '' % (ex.__class__.__name__, ex))
                 QtGui.QMessageBox.information(self, 'Read error', msg,
@@ -2074,6 +2078,7 @@ if __name__ == '__main__':
     except IndexError:
         uid_pv = 'XF:03IDC-ES{BS-Scan}UID-I'
 
+    logging.basicConfig(level=logging.INFO)
     app = QtGui.QApplication(sys.argv)
     # app.setAttribute(Qt.AA_X11InitThreads)
 

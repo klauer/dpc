@@ -71,7 +71,7 @@ def load_image_filestore(datum_id):
         raise IOError("Image doesn't exist yet")
 
     try:
-        return fsapi.retrieve(datum_id)
+        return np.asarray(fsapi.retrieve(datum_id)).squeeze()
     except Exception as ex:
         print('Filestore load failed (datum={}): ({}) {}'
               ''.format(datum_id, ex.__class__.__name__, ex))

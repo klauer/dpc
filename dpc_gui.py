@@ -978,8 +978,12 @@ class DPCWindow(QtGui.QMainWindow):
         first_image = max((1, self.first_image + 1))
         ref_image = None
 
-        for i in range(first_image):
-            ref_image = next(iter_)
+        try:
+            for i in range(first_image):
+                ref_image = next(iter_)
+        except StopIteration:
+            print('Reference image #{} does not exist with data key {}'
+                  ''.format(first_image, self.scan.key))
 
         if ref_image is not None:
             self.ref_image_path_QLineEdit.setText(ref_image)

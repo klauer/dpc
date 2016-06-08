@@ -932,6 +932,9 @@ class DPCWindow(QtGui.QMainWindow):
 
         self.pyramid_scan.setChecked(self.scan.pyramid)
 
+        if isinstance(scan_range, dict):
+            scan_range = [scan_range[mtr] for mtr in self.scan.motors]
+
         if len(self.scan.dimensions) == 1:
             nx, ny = self.scan.dimensions[0], 1
             if scan_range is not None:

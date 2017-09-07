@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Created on May 23, 2013, last modified on June 19, 2013
+Created on May 23, 2013
 @author: Cheng Chang (cheng.chang.ece@gmail.com)
          Computer Science Group, Computational Science Center
          Brookhaven National Laboratory
@@ -14,22 +14,20 @@ Reference: Yan, H. et al. Quantitative x-ray phase imaging at the nanoscale by m
 Test data is available at:
 https://docs.google.com/file/d/0B3v6W1bQwN_AdjZwWmE3WTNqVnc/edit?usp=sharing
 '''
-from __future__ import print_function
+from __future__ import (print_function, division)
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import PIL
 
-from scipy.misc import imsave
 from scipy.optimize import minimize
 import time
-import zipfile
-import cStringIO as StringIO
+from six import StringIO
 import load_timepix
+import filestore.api as fsapi
+
 
 rss_cache = {}
-
 rss_iters = 0
 
 
@@ -38,7 +36,7 @@ def get_beta(xdata):
     try:
         beta = rss_cache[length]
     except:
-        #beta = 1j * (np.arange(length) + 1 - (np.floor(length / 2.0) + 1))
+        # beta = 1j * (np.arange(length) + 1 - (np.floor(length / 2.0) + 1))
         beta = 1j * (np.arange(length) - np.floor(length / 2.0))
         rss_cache[length] = beta
 
@@ -68,55 +66,82 @@ def pil_load(fn):
     return x.astype('=u2')
 
 
-def load_file(fn, roi=None, bad_pixels=[], zip_file=None):
+def load_image_filestore(datum_id):
+    if datum_id is None:
+        raise IOError("Image doesn't exist yet")
+
+    try:
+        return np.asarray(fsapi.retrieve(datum_id)).squeeze()
+    except Exception as ex:
+        print('Filestore load failed (datum={}): ({}) {}'
+              ''.format(datum_id, ex.__class__.__name__, ex))
+        raise
+
+
+def load_file(load_image, fn, hang, roi=None, bad_pixels=[], zip_file=None):
     """
     Load an image file
     """
-    if os.path.exists(fn):
-        im = load_timepix.load(fn)
-
-    elif zip_file is not None:
-        raise NotImplementedError
-
-        # loading from a zip file is just about as fast (when not running in
-        # parallel)
-        f = zip_file.open(fn)
-        stream = StringIO.StringIO()
-        stream.write(f.read())
-        f.close()
-
-        stream.seek(0)
-        im = plt.imread(stream, format='tif')
+    if load_image == load_image_filestore:
+        # ignore hanging settings, just hit filestore
+        try:
+            im = load_image(fn)
+        except Exception:
+            return None, None, None
     else:
-        raise Exception('File not found: %s' % fn)
+        if hang == 1:
+            while(not os.path.exists(fn)):
+                time.sleep(0.1)
+            else:
+                im = load_image(fn)
+
+        elif os.path.exists(fn):
+            im = load_image(fn)
+
+        elif zip_file is not None:
+            raise NotImplementedError
+
+            # loading from a zip file is just about as fast (when not running in
+            # parallel)
+            f = zip_file.open(fn)
+            stream = StringIO.StringIO()
+            stream.write(f.read())
+            f.close()
+
+            stream.seek(0)
+            im = plt.imread(stream, format='tif')
+        else:
+            raise Exception('File not found: %s' % fn)
+
+    # print(im.shape)
 
     if bad_pixels is not None:
         for x, y in bad_pixels:
-            im[x, y] = 0
+            im[y, x] = 0
 
     if roi is not None:
         x1, y1, x2, y2 = roi
-        im = im[x1:x2 + 1, y1:y2 + 1]
+        im = im[y1:y2 + 1, x1:x2 + 1]
 
-    xline = np.sum(im, axis=1)
-    yline = np.sum(im, axis=0)
+    xline = np.sum(im, axis=0)
+    yline = np.sum(im, axis=1)
 
     fx = np.fft.fftshift(np.fft.ifft(xline))
     fy = np.fft.fftshift(np.fft.ifft(yline))
     return im, fx, fy
 
 
-def xj_test(filename, i, j, roi=None, bad_pixels=[], **kwargs):
+def xj_test(filename, i, j, hang, roi=None, bad_pixels=[], **kwargs):
     try:
-        im, fx, fy = load_file(filename, zip_file=zip_file, roi=roi,
+        im, fx, fy = load_file(filename, zip_file=zip_file, hang=hang, roi=roi,
                                bad_pixels=bad_pixels)
     except Exception as ex:
-        print('Failed to load file %s: %s' % (filename, ex))
+        #print('Failed to load file %s: %s' % (filename, ex))
         return 0.0, 0.0, 0.0
 
     wx, wy = im.shape
-    gx = np.sum(im[:wx / 2, :]) - np.sum(im[wx / 2:, :])
-    gy = np.sum(im[:, :wy / 2]) - np.sum(im[:, wy / 2:])
+    gx = np.sum(im[:wx // 2, :]) - np.sum(im[wx // 2:, :])
+    gy = np.sum(im[:, :wy // 2]) - np.sum(im[:, wy // 2:])
     return 0, gx, gy
 
 
@@ -126,7 +151,10 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
             energy=19.5, zip_file=None, roi=None, bad_pixels=[],
             max_iters=1000,
             solver='Nelder-Mead',
-            invers = False):
+            hang=True,
+            reverse_x=1,
+            reverse_y=1,
+            load_image=load_timepix.load):
     """
     All units in micron
 
@@ -137,24 +165,24 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
     energy: in keV
     """
     try:
-        img, fx, fy = load_file(filename, zip_file=zip_file, roi=roi,
+        img, fx, fy = load_file(load_image, filename, hang=hang, zip_file=zip_file, roi=roi,
                                 bad_pixels=bad_pixels)
-    except Exception as ex:
-        print('Failed to load file %s: %s' % (filename, ex))
+    except IOError as ie:
+        print('%s' % ie)
         return 0.0, 0.0, 0.0
 
-    #vx = fmin(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
-    #          maxiter=max_iters, maxfun=max_iters, disp=0)
+    if img is None:
+        return 1e-5, 1e-5, 1e-5
+
+    # vx = fmin(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
+    #           maxiter=max_iters, maxfun=max_iters, disp=0)
     res = minimize(rss, start_point, args=(ref_fx, fx, get_beta(ref_fx)),
-                   method=solver, tol=1e-4,
+                   method=solver, tol=1e-6,
                    options=dict(maxiter=max_iters))
 
     vx = res.x
     a = vx[0]
-    if invers:
-        gx = -vx[1]
-    else:
-        gx = vx[1]
+    gx = reverse_x * vx[1]
 
     #vy = fmin(rss, start_point, args=(ref_fy, fy, get_beta(ref_fy)),
     #          maxiter=max_iters, maxfun=max_iters, disp=0)
@@ -163,71 +191,71 @@ def run_dpc(filename, i, j, ref_fx=None, ref_fy=None,
                    options=dict(maxiter=max_iters))
 
     vy = res.x
-    gy = vy[1]
+    gy = reverse_y * vy[1]
 
     #print(i, j, vx[0], vx[1], vy[1])
     return a, gx, gy
 
 
 def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
-    """ 
-    Reconstruct the final phase image 
+    """
+    Reconstruct the final phase image
     Parameters
     ----------
     gx : 2-D numpy array
         phase gradient along x direction
-    
+
     gy : 2-D numpy array
         phase gradient along y direction
-    
+
     dx : float
         scanning step size in x direction (in micro-meter)
-        
+
     dy : float
         scanning step size in y direction (in micro-meter)
-    
+
     pad : float
         padding parameter
         default value, pad = 1 --> no padding
                     p p p
         pad = 3 --> p v p
                     p p p
-                    
+
     w : float
         weighting parameter for the phase gradient along x and y direction when
         constructing the final phase image
-        
+
     Returns
     ----------
     phi : 2-D numpy array
         final phase image
-        
+
     References
     ----------
     [1] Yan, Hanfei, Yong S. Chu, Jorg Maser, Evgeny Nazaretski, Jungdae Kim,
     Hyon Chol Kang, Jeffrey J. Lombardo, and Wilson KS Chiu, "Quantitative
-    x-ray phase imaging at the nanoscale by multilayer Laue lenses," Scientific 
+    x-ray phase imaging at the nanoscale by multilayer Laue lenses," Scientific
     reports 3 (2013).
-        
+
     """
-    
+
     rows, cols = gx.shape
 
     gx_padding = np.zeros((pad * rows, pad * cols), dtype='d')
     gy_padding = np.zeros((pad * rows, pad * cols), dtype='d')
-    
+
     gx_padding[(pad // 2) * rows : (pad // 2 + 1) * rows,
                (pad // 2) * cols : (pad // 2 + 1) * cols] = gx
-    gy_padding[(pad // 2) * rows : (pad // 2 + 1) * rows, 
+    gy_padding[(pad // 2) * rows : (pad // 2 + 1) * rows,
                (pad // 2) * cols : (pad // 2 + 1) * cols] = gy
-    
+
     tx = np.fft.fftshift(np.fft.fft2(gx_padding))
     ty = np.fft.fftshift(np.fft.fft2(gy_padding))
-    
+
     c = np.zeros((pad * rows, pad * cols), dtype=complex)
-    
-    mid_col = pad * cols // 2.0 + 1
-    mid_row = pad * rows // 2.0 + 1
+
+    mid_col = pad * cols // 2 + 1
+    mid_row = pad * rows // 2 + 1
 
     ax = 2 * np.pi * (np.arange(pad * cols) + 1 - mid_col) / (pad * cols * dx)
     ay = 2 * np.pi * (np.arange(pad * rows) + 1 - mid_row) / (pad * rows * dy)
@@ -243,21 +271,21 @@ def recon(gx, gy, dx=0.1, dy=0.1, pad=1, w=1.):
     c = np.fft.ifftshift(c)
     phi_padding = np.fft.ifft2(c)
     phi_padding = -phi_padding.real
-    
+
     phi = phi_padding[(pad // 2) * rows : (pad // 2 + 1) * rows,
                       (pad // 2) * cols : (pad // 2 + 1) * cols]
-    
+
     return phi
-    
-    
+
+
 def main(file_format='SOFC/SOFC_%05d.tif',
          dx=0.1, dy=0.1,
-         ref_image=1,
+         ref_image=None,
          zip_file=None,
          rows=121, cols=121,
          start_point=[1, 0],
          pixel_size=55,
-         focus_to_det=1.46e6,
+         focus_to_det=1.46,
          energy=19.5,
          pool=None,
          first_image=1,
@@ -266,8 +294,20 @@ def main(file_format='SOFC/SOFC_%05d.tif',
          bad_pixels=[],
          solver='Nelder-Mead',
          display_fcn=None,
-         invers = False):
-
+         random=1,
+         pyramid=-1,
+         hang=1,
+         swap=-1,
+         reverse_x=1,
+         reverse_y=1,
+         mosaic_x=121,
+         mosaic_y=121,
+         load_image=load_timepix.load,
+         use_mds=False,
+         scan=None,
+         save_path=None,
+         pad=False
+         ):
     print('DPC')
     print('---')
     print('\tFile format: %s' % file_format)
@@ -277,12 +317,18 @@ def main(file_format='SOFC/SOFC_%05d.tif',
     print('\tcols: %s' % cols)
     print('\tstart point: %s' % start_point)
     print('\tpixel size: %s' % pixel_size)
-    print('\tfocus to det: %s' % (focus_to_det / 1e6))
+    print('\tfocus to det: %s' % (focus_to_det))
     print('\tenergy: %s' % energy)
     print('\tfirst image: %s' % first_image)
     print('\treference image: %s' % ref_image)
     print('\tsolver: %s' % solver)
+    print('\thang : %s' % hang)
+    print('\tswap : %s' % swap)
+    print('\treverse_x : %s' % reverse_x)
+    print('\treverse_y : %s' % reverse_y)
     print('\tROI: (%s, %s)-(%s, %s)' % (x1, y1, x2, y2))
+    print('\tUse mds : %s' % use_mds)
+    print('\tScan : %s' % scan)
 
     t0 = time.time()
 
@@ -292,7 +338,7 @@ def main(file_format='SOFC/SOFC_%05d.tif',
             roi = (x1, y1, x2, y2)
 
     # read the reference image: only one reference image
-    reference, ref_fx, ref_fy = load_file(file_format % ref_image,
+    reference, ref_fx, ref_fy = load_file(load_image, ref_image, hang,
                                           zip_file=zip_file, roi=roi,
                                           bad_pixels=bad_pixels)
 
@@ -312,147 +358,118 @@ def main(file_format='SOFC/SOFC_%05d.tif',
                         roi=roi,
                         bad_pixels=bad_pixels,
                         solver=solver,
-                        invers=invers
+                        load_image=load_image,
+                        hang=hang,
+                        reverse_x=reverse_x,
+                        reverse_y=reverse_y,
                         )
 
-    def get_filename(i, j):
-        frame_num = first_image + i * cols + j
+    if use_mds:
+        image_uids = list(scan)
+        print('Filestore has %d images' % (len(image_uids)))
 
-        # scan 1   9669
-        #          12261 images
-        #        = 21930
-        # scan 2   21950
-        #if frame_num >= 21930:
-        #    frame_num += 20
-        return file_format % frame_num
+        def get_filename(i, j):
+            idx = first_image + i * cols + j
+            try:
+                return image_uids[idx]
+            except IndexError:
+                return None
+    else:
+        def get_filename(i, j):
+            frame_num = first_image + i * cols + j
+            return file_format % frame_num
 
     # Wavelength in micron
     lambda_ = 12.4e-4 / energy
-    if pool is None:
-        for i in range(rows):
-            trow = time.time()
-            print('Row %d' % i, end='')
-            rss_iters = 0
-            for j in range(cols):
-                _a, _gx, _gy = run_dpc(get_filename(i, j), i, j,
-                                       **dpc_settings)
-                a[i, j] = _a
-                gx[i, j] = _gx
-                gy[i, j] = _gy
 
-            row_elapsed = (1000 * (time.time() - trow))
-            print(' elapsed %.3fms' % row_elapsed, end=' ')
-            print(' (per frame %.3fms, rss iters %d)' % (row_elapsed / cols, rss_iters))
+    _t0 = time.time()
 
+    mrows = rows // mosaic_y
+    mcols = cols // mosaic_x
+
+    if 1:
+        fcn = run_dpc
     else:
-        args = [(get_filename(i, j), i, j)
-                for i in range(rows)
-                for j in range(cols)
-                ]
+        fcn = xj_test
 
-        _t0 = time.time()
-        try:
-            if 1:
-                fcn = run_dpc
-            else:
-                fcn = xj_test
+    gx_factor = len(ref_fx) * pixel_size / (lambda_ * focus_to_det * 1e6)
+    gy_factor = len(ref_fy) * pixel_size / (lambda_ * focus_to_det * 1e6)
 
-            if display_fcn is not None:
-                np.random.shuffle(args)
+    for n in range(mosaic_y):
+        for m in range(mosaic_x):
+            args = [(get_filename(i, j), i, j)
+                    for i in range(n * mrows, n * mrows + mrows)
+                    for j in range(m * mcols, m * mcols + mcols)
+                    ]
 
-            results = [pool.apply_async(fcn, arg, kwds=dpc_settings)
-                       for arg in args]
+            try:
 
-            if display_fcn is not None:
-                total_results = len(results)
-                k = 0
-                while k < total_results:
+                if display_fcn is not None and random == 1:
+                    np.random.shuffle(args)
+
+                results = [pool.apply_async(fcn, arg, kwds=dpc_settings)
+                            for arg in args]
+
+                if display_fcn is not None:
+                    total_results = len(results)
                     k = 0
-                    for arg, result in zip(args, results):
-                        if result.ready():
-                            _a, _gx, _gy = result.get()
-                            fn, i, j = arg
+                    while k < total_results:
+                        k = 0
+                        for arg, result in zip(args, results):
+                            if result.ready():
+                                _a, _gx, _gy = result.get()
+                                fn, i, j = arg
 
-                            a[i, j] = _a
-                            gx[i, j] = _gx
-                            gy[i, j] = _gy
-                            k += 1
+                                if pyramid == 1 and i % 2 != 0:
+                                    j = mcols - j - 1
 
-                    try:
-                        gx *= len(ref_fx) * pixel_size / (lambda_ * focus_to_det * 1e6)
-                        gy *= len(ref_fy) * pixel_size / (lambda_ * focus_to_det * 1e6)
-                        display_fcn(a, gx, gy, None)
-                    except Exception as ex:
-                        print('Failed to update display: (%s) %s' % (ex.__class__.__name__, ex))
+                                a[i, j] = _a
+                                if swap == 1:
+                                    gy[i, j] = _gx * gx_factor
+                                    gx[i, j] = _gy * gy_factor
+                                else:
+                                    gx[i, j] = _gx * gx_factor
+                                    gy[i, j] = _gy * gy_factor
+                                k += 1
 
-                    time.sleep(1.0)
+                        try:
+                            display_fcn(a, gx, gy, None)
+                        except Exception as ex:
+                            print('Failed to update display: (%s) %s' % (ex.__class__.__name__, ex))
 
-            pool.close()
-            pool.join()
-        except KeyboardInterrupt:
-            print('Cancelled')
-            return
+                        time.sleep(1.0)
+            except KeyboardInterrupt:
+                print('Cancelled')
+                return
+    pool.close()
+    pool.join()
 
-        for arg, result in zip(args, results):
-            fn, i, j = arg
-            _a, _gx, _gy = result.get()
-            a[i, j] = _a
-            gx[i, j] = _gx
-            gy[i, j] = _gy
-            k += 1
+    _t1 = time.time()
+    elapsed = _t1 - _t0
+    print('Multiprocess elapsed=%.3f frames=%d (per frame %.3fms)'
+          '' % (elapsed, rows * cols, 1000 * elapsed / (rows * cols)))
 
-        _t1 = time.time()
-        elapsed = _t1 - _t0
-        print('Multiprocess elapsed=%.3f frames=%d (per frame %.3fms)' % (elapsed, rows * cols,
-                                                                          1000 * elapsed / (rows * cols)))
-    
-    gx *= len(ref_fx) * pixel_size / (lambda_ * focus_to_det * 1e6)
-    gy *= len(ref_fy) * pixel_size / (lambda_ * focus_to_det * 1e6)
-    
     dim = len(np.squeeze(gx).shape)
-    
-    if dim is not 1:
-        imsave('a.jpg', a)
-        np.savetxt('a.txt', a)
-        imsave('gx.jpg', gx)
-        np.savetxt('gx.txt', gx)
-        imsave('gy.jpg', gy)
-        np.savetxt('gy.txt', gy)
-
-        #-------------reconstruct the final phase image using gx and gy--------------------#
-        phi = recon(gx, gy, dx, dy)
-        imsave('phi.jpg', phi)
-        np.savetxt('phi.txt', phi)
-
+    if dim != 1:
+        if pad == True:
+            phi = recon(gx, gy, dx, dy, 3)
+            print("Padding mode enabled!")
+        else:
+            phi = recon(gx, gy, dx, dy)
+            print("Padding mode disabled!")
         t1 = time.time()
         print('Elapsed', t1 - t0)
 
+        display_fcn(a, gx, gy, phi)
         return a, gx, gy, phi
-        
+
     else:
-        """
-        #plt.hold(False)
-        plt.plot(np.squeeze(a), '-*')
-        plt.savefig('a.jpg')
-        np.savetxt('a.txt', a)
-        
-        plt.plot(np.squeeze(gx), '-*')
-        plt.savefig('gx.jpg')
-        np.savetxt('gx.txt', gx)
-        
-        plt.plot(np.squeeze(gy), '-*')
-        plt.savefig('gy.jpg')
-        np.savetxt('gy.txt', gy)
-        
         t1 = time.time()
         print('Elapsed', t1 - t0)
-        """
-        
+
         phi = None
+        display_fcn(a, gx, gy, phi)
         return a, gx, gy, phi
-    
-    #plt.imshow(phi, cmap=cm.Greys_r)
-    #plt.show()
 
 if __name__ == '__main__':
     zip_file = None  # zipfile.ZipFile('SOFC.zip')

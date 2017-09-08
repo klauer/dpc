@@ -1,5 +1,5 @@
 from databroker import Broker
-from databroker.core import register_builtin_handlers
+#from databroker.core import register_builtin_handlers
 from filestore.fs import FileStore
 
 db_old = Broker.named('hxn_old')
@@ -10,17 +10,17 @@ db_new = Broker.named('hxn')
 from hxntools.handlers.xspress3 import Xspress3HDF5Handler
 from hxntools.handlers.timepix import TimepixHDF5Handler
 
-register_builtin_handlers(db_new.reg)
+#register_builtin_handlers(db_new.reg)
 
-db_new.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                            Xspress3HDF5Handler)
+#db_new.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
+#                            Xspress3HDF5Handler)
 db_new.reg.register_handler(TimepixHDF5Handler._handler_name,
                             TimepixHDF5Handler, overwrite=True)
 
 
-register_builtin_handlers(db_old.reg)
-db_old.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                            Xspress3HDF5Handler)
+#register_builtin_handlers(db_old.reg)
+#db_old.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
+#                            Xspress3HDF5Handler)
 db_old.reg.register_handler(TimepixHDF5Handler._handler_name,
                             TimepixHDF5Handler, overwrite=True)
 

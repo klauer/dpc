@@ -14,15 +14,19 @@ from PyQt4.QtCore import Qt, QCoreApplication
 
 import dpc_batch as dpc
 
-version = '1.0.1'
+version = '1.0.5'
 
 # #----------------------------------------------------------------------
-# class EmittingStream(QtCore.QObject):
+# class PrintStream(QtCore.QObject):
+#     message = QtCore.pyqtSignal(str)
+#     def __init__(self, parent=None):
+#         super(PrintStream, self).__init__(parent)
 #
-#     textWritten = QtCore.pyqtSignal(str)
+#     def write(self, message):
+#         self.message.emit(str(message))
 #
-#     def write(self, text):
-#         self.textWritten.emit(str(text))
+#     def flush(self):
+#         pass
 
 """ ------------------------------------------------------------------------------------------------"""
 class MainFrame(QtGui.QMainWindow):
@@ -38,10 +42,10 @@ class MainFrame(QtGui.QMainWindow):
         if val is None:
             val = ''
         self.scan_range = val
-        val = self.settings.value('scan_nums').toPyObject()
-        if val is None:
-            val = ''
-        self.scan_nums = val
+        # val = self.settings.value('scan_nums').toPyObject()
+        # if val is None:
+        #     val = ''
+        # self.scan_nums = val
         val = self.settings.value('every_n').toPyObject()
         if val is None:
             val = 1
@@ -96,11 +100,6 @@ class MainFrame(QtGui.QMainWindow):
         self.resize(600, 720)
         self.setWindowTitle('DPC Batch v.{}'.format(version))
 
-        pal = QtGui.QPalette()
-        self.setAutoFillBackground(True)
-        pal.setColor(QtGui.QPalette.Window,QtGui.QColor('white'))
-        self.setPalette(pal)
-
         self.mainWidget = QtGui.QWidget(self)
         self.setCentralWidget(self.mainWidget)
 
@@ -109,19 +108,25 @@ class MainFrame(QtGui.QMainWindow):
 
         sizer1 = QtGui.QGroupBox('Scans')
         vbox1 = QtGui.QVBoxLayout()
+
+        self.cb_usedatastore = QtGui.QCheckBox( '  Read the Data from DataStore', self)
+        self.cb_usedatastore.setChecked(self.read_data_from_datastore)
+        self.cb_usedatastore.stateChanged.connect(self.OnUseDataStore)
+        vbox1.addWidget(self.cb_usedatastore)
+
         hbox = QtGui.QHBoxLayout()
-        l1 = QtGui.QLabel('Scan range \t', self)
+        l1 = QtGui.QLabel('Scan numbers & ranges \t', self)
         self.tc_scan_range = QtGui.QLineEdit(self)
         self.tc_scan_range.setAlignment(QtCore.Qt.AlignLeft)
         self.tc_scan_range.setText(self.scan_range)
-        l1.setToolTip('Set scan ranges. Example: 3-5, 7-15, 30-55')
-        self.tc_scan_range.setToolTip('Set scan ranges. Example: 3-5, 7-15, 30-55')
+        l1.setToolTip('Set scan numbers and ranges. Example: 2, 3-5, 7-15, 23, 30-55')
+        self.tc_scan_range.setToolTip('Set scan numbers and ranges. Example: 2, 3-5, 7-15, 23, 30-55')
         hbox.addWidget(l1)
         hbox.addWidget(self.tc_scan_range)
         vbox1.addLayout(hbox)
 
         hbox = QtGui.QHBoxLayout()
-        l2 = QtGui.QLabel('Process every n-th scan ', self)
+        l2 = QtGui.QLabel('Process every n-th scan \t', self)
         self.ntc_every_n = QtGui.QLineEdit(self)
         self.ntc_every_n.setValidator(QtGui.QIntValidator(1, 99999, self))
         self.ntc_every_n.setAlignment(QtCore.Qt.AlignRight)
@@ -131,20 +136,16 @@ class MainFrame(QtGui.QMainWindow):
         hbox.addStretch(1)
         vbox1.addLayout(hbox)
 
-        hbox = QtGui.QHBoxLayout()
-        l1 = QtGui.QLabel('Scan numbers \t', self)
-        self.tc_scans = QtGui.QLineEdit(self)
-        self.tc_scans.setAlignment(QtCore.Qt.AlignLeft)
-        self.tc_scans.setText(str(self.scan_nums))
-        l1.setToolTip('Set scan numbers. Example: 1, 24, 26')
-        self.tc_scans.setToolTip('Set scan numbers. Example: 1, 24, 26')
-        hbox.addWidget(l1)
-        hbox.addWidget(self.tc_scans)
-        vbox1.addLayout(hbox)
-
-        self.cb_usedatastore = QtGui.QCheckBox( '  Read the Data from DataStore', self)
-        self.cb_usedatastore.setChecked(self.read_data_from_datastore)
-        vbox1.addWidget(self.cb_usedatastore)
+        # hbox = QtGui.QHBoxLayout()
+        # l1 = QtGui.QLabel('Scan numbers \t', self)
+        # self.tc_scans = QtGui.QLineEdit(self)
+        # self.tc_scans.setAlignment(QtCore.Qt.AlignLeft)
+        # self.tc_scans.setText(str(self.scan_nums))
+        # l1.setToolTip('Set scan numbers. Example: 1, 24, 26')
+        # self.tc_scans.setToolTip('Set scan numbers. Example: 1, 24, 26')
+        # hbox.addWidget(l1)
+        # hbox.addWidget(self.tc_scans)
+        # vbox1.addLayout(hbox)
 
         hbox = QtGui.QHBoxLayout()
         l1 = QtGui.QLabel('Filestore key \t', self)
@@ -162,11 +163,11 @@ class MainFrame(QtGui.QMainWindow):
         l1.setToolTip('Data Direcory if not using datastore.')
         self.tc_datadir.setToolTip('Data Direcory if not using datastore.')
         self.tc_datadir.setText(self.data_directory)
-        button_d1 = QtGui.QPushButton('Browse')
-        button_d1.clicked.connect(self.OnSelectDataDir)
+        self.button_d1 = QtGui.QPushButton('Browse')
+        self.button_d1.clicked.connect(self.OnSelectDataDir)
         hbox.addWidget(l1)
         hbox.addWidget(self.tc_datadir)
-        hbox.addWidget(button_d1)
+        hbox.addWidget(self.button_d1)
         vbox1.addLayout(hbox)
 
         hbox = QtGui.QHBoxLayout()
@@ -256,16 +257,20 @@ class MainFrame(QtGui.QMainWindow):
         self.cb_savetxt.setChecked(self.save_txt)
         vbox4.addWidget(self.cb_savetxt)
 
+        cb_savetif = QtGui.QCheckBox('  Save results as .tif files', self)
+        cb_savetif.setChecked(True)
+        cb_savetif.setDisabled(True)
+        vbox4.addWidget(cb_savetif)
+
         sizer4.setLayout(vbox4)
         vbox.addWidget(sizer4)
 
         hbox = QtGui.QHBoxLayout()
-        self.button_save = QtGui.QPushButton( 'Save')
+        self.button_save = QtGui.QPushButton( 'Save script as..')
         self.button_save.clicked.connect( self.OnSave)
         hbox.addWidget(self.button_save)
-        self.button_start = QtGui.QPushButton( 'Start')
+        self.button_start = QtGui.QPushButton( 'Save and Start')
         self.button_start.clicked.connect( self.OnStart)
-        self.button_start.setEnabled(False)
         hbox.addWidget(self.button_start)
         vbox.addLayout(hbox)
 
@@ -273,13 +278,15 @@ class MainFrame(QtGui.QMainWindow):
         self.console_info.setReadOnly(True)
         vbox.addWidget(self.console_info)
 
-        #sys.stdout = EmittingStream(textWritten=self.ConsoleOutput)
+        # myStream = PrintStream()
+        # myStream.message.connect(self.on_myStream_message)
+        # sys.stdout = myStream
 
         self.show()
         if sys.platform == "darwin":
             self.raise_()
 
-
+        self.OnUseDataStore()
 
 
     # ----------------------------------------------------------------------
@@ -287,14 +294,14 @@ class MainFrame(QtGui.QMainWindow):
         sys.stdout = sys.__stdout__
 
 
-    # ----------------------------------------------------------------------
-    def ConsoleOutput(self, text):
-
-        cursor = self.console_info.textCursor()
-        cursor.movePosition(QtGui.QTextCursor.End)
-        cursor.insertText(text)
-        self.console_info.setTextCursor(cursor)
-        self.console_info.ensureCursorVisible()
+    # # ----------------------------------------------------------------------
+    # @QtCore.pyqtSlot(str)
+    # def on_myStream_message(self, message):
+    #     cursor = self.console_info.textCursor()
+    #     cursor.movePosition(QtGui.QTextCursor.End)
+    #     cursor.insertText(message)
+    #     self.console_info.setTextCursor(cursor)
+    #     self.console_info.ensureCursorVisible()
 
 #----------------------------------------------------------------------
     def OnBrowseDir(self):
@@ -325,12 +332,34 @@ class MainFrame(QtGui.QMainWindow):
 
 
 #----------------------------------------------------------------------
+    def OnUseDataStore(self):
+        if self.cb_usedatastore.isChecked():
+            self.read_data_from_datastore = 1
+            self.tc_datadir.setDisabled(True)
+            self.button_d1.setDisabled(True)
+            self.tc_format.setDisabled(True)
+            self.ntc_every_n.setDisabled(False)
+            self.tc_fskey.setDisabled(False)
+        else:
+            self.read_data_from_datastore = 0
+            self.tc_datadir.setDisabled(False)
+            self.button_d1.setDisabled(False)
+            self.tc_format.setDisabled(False)
+            self.ntc_every_n.setDisabled(True)
+            self.tc_fskey.setDisabled(True)
+
+
+#----------------------------------------------------------------------
     def OnStart(self, evt):
+
         self.console_info.append('Started DPC batch...')
         QCoreApplication.processEvents()
 
         QtGui.QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.script_file = 'DPCBatchGUIScriptFile.txt'
+        self.Save(self.script_file)
         dpc.run_batch(self.script_file)
+
         QtGui.QApplication.restoreOverrideCursor()
         self.console_info.append('DPC finished.')
 
@@ -338,12 +367,25 @@ class MainFrame(QtGui.QMainWindow):
 #----------------------------------------------------------------------
     def OnSave(self, evt):
 
+        scriptfile = QtGui.QFileDialog.getSaveFileName(self, "Choose a script file", '', "Text file (*.txt)")
+
+        if scriptfile == '':
+            return
+
+        scriptfile = os.path.abspath(scriptfile)
+
+        self.Save(scriptfile)
+
+
+#----------------------------------------------------------------------
+    def Save(self, scriptfile):
+
         #Get the info
         self.scan_range = self.tc_scan_range.text()
         self.settings.setValue('scan_range', self.scan_range)
-        self.scan_nums = self.tc_scans.text()
-        self.settings.setValue('scan_nums', self.scan_nums)
-        if (self.scan_range == '') and (self.scan_nums == ''):
+        # self.scan_nums = self.tc_scans.text()
+        # self.settings.setValue('scan_nums', self.scan_nums)
+        if (self.scan_range == ''):
             QtGui.QMessageBox.warning(self, "Error", "Please enter scan range or scan number.")
             return
 
@@ -397,20 +439,12 @@ class MainFrame(QtGui.QMainWindow):
         self.settings.setValue('save_txt', self.save_txt)
 
 
-        scriptfile = QtGui.QFileDialog.getSaveFileName(self, "Choose a script file", '', "Text file (*.txt)")
-
-        if scriptfile == '':
-            return
-
-        scriptfile = os.path.abspath(scriptfile)
-
-
         #Save the info into script file
         self.console_info.append('\n#DPC script file')
         if self.scan_range != '':
             self.console_info.append( 'scan_range = {0}'.format(self.scan_range))
-        if self.scan_nums != '':
-            self.console_info.append('scan_numbers = {0}'.format(self.scan_nums))
+        # if self.scan_nums != '':
+        #     self.console_info.append('scan_numbers = {0}'.format(self.scan_nums))
         self.console_info.append( 'every_nth_scan = {0}'.format(self.every_n))
         self.console_info.append( 'get_data_from_datastore = {0}'.format(self.read_data_from_datastore))
         self.console_info.append( 'file_store_key = {0}'.format(self.filestore_key))
@@ -429,8 +463,8 @@ class MainFrame(QtGui.QMainWindow):
             sf.write('#DPC script file\n')
             if self.scan_range != '':
                 sf.write('scan_range = {0}\n'.format(self.scan_range))
-            if self.scan_nums != '':
-                sf.write('scan_numbers = {0}\n'.format(self.scan_nums))
+            # if self.scan_nums != '':
+            #     sf.write('scan_numbers = {0}\n'.format(self.scan_nums))
             sf.write('every_nth_scan = {0}\n'.format(self.every_n))
             sf.write('get_data_from_datastore = {0}\n'.format(self.read_data_from_datastore))
             sf.write('file_store_key = {0}\n'.format(self.filestore_key))
@@ -445,14 +479,12 @@ class MainFrame(QtGui.QMainWindow):
             sf.write('save_txt = {0}\n'.format(self.save_txt))
             sf.close()
 
-            self.console_info.append('\nSaved script file {0}'.format(scriptfile))
+            self.console_info.append('\nSaved script file {0}\n'.format(scriptfile))
         except:
             QtGui.QMessageBox.warning(self, "Error",'Error writing script file!')
             return
 
         self.script_file = scriptfile
-        self.button_start.setEnabled(True)
-
 
 
 """ ------------------------------------------------------------------------------------------------"""

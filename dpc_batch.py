@@ -18,16 +18,17 @@ except ImportError as ex:
     print('[!] (import error: {})'.format(ex))
     havetiff = False
 
-try:
-    from databroker import db, get_events
-except ImportError as ex:
-    print('[!] Unable to import DataBroker library.')
+# try:
+#     from databroker import db, get_events
+# except ImportError as ex:
+#     print('[!] Unable to import DataBroker library.')
+from hxn_db_config import db
 
 try:
     import hxntools
     import hxntools.handlers
     from hxntools.scan_info import ScanInfo
-    from databroker import DataBroker
+    #from databroker import DataBroker
 except ImportError as ex:
     print('[!] Unable to import hxntools library.')
     print('[!] (import error: {})'.format(ex))
@@ -38,11 +39,12 @@ else:
 
 import dpc_kernel as dpc
 
-version = '0.9.5'
+version = '0.1.0'
 
 
 def load_scan_from_mds(scan_id):
-    hdrs = DataBroker(scan_id=int(scan_id))
+    #hdrs = DataBroker(scan_id=int(scan_id))
+    hdrs = db[int(scan_id)]
     if len(hdrs) == 1:
         hdr = hdrs[0]
 
@@ -122,28 +124,29 @@ def load_image_hdf5(path):
     return data[0, :, :]
 
 
-def save_results(a, gx, gy, phi, rx, ry, save_path, save_filename, scan_number, save_pngs = True, save_tif = True):
+def save_results(a, gx, gy, phi, rx, ry, save_path, save_filename, scan_number, save_pngs=True, save_tif=True, save_txt=True):
 
     save_filename = os.path.join(save_path, 'S{0}_{1}'.format(scan_number, save_filename))
 
     if os.path.isdir(save_path):
-        a_path = save_filename + '_a.txt'
-        np.savetxt(a_path, a)
-        gx_path = save_filename + '_gx.txt'
-        np.savetxt(gx_path, gx)
-        gy_path = save_filename + '_gy.txt'
-        np.savetxt(gy_path, gy)
-        rx_path = save_filename + '_rx.txt'
-        np.savetxt(rx_path, rx)
-        ry_path = save_filename + '_ry.txt'
-        np.savetxt(ry_path, ry)
-        if phi is not None:
-            phi_path = save_filename + '_phi.txt'
-            np.savetxt(phi_path, phi)
+        if save_txt:
+            a_path = save_filename + '_a.txt'
+            np.savetxt(a_path, a)
+            gx_path = save_filename + '_gx.txt'
+            np.savetxt(gx_path, gx)
+            gy_path = save_filename + '_gy.txt'
+            np.savetxt(gy_path, gy)
+            rx_path = save_filename + '_rx.txt'
+            np.savetxt(rx_path, rx)
+            ry_path = save_filename + '_ry.txt'
+            np.savetxt(ry_path, ry)
+            if phi is not None:
+                phi_path = save_filename + '_phi.txt'
+                np.savetxt(phi_path, phi)
 
         if save_pngs:
             a_path = save_filename + '_a.png'
-            im = PIL.Image.fromarray((255.0 / a.ptp() * (a - a.min())).astype(np.uint8))
+            im = PIL.Image.fromarray((2.0 / a.ptp() * (a - a.min())).astype(np.uint8))
             im.save(a_path)
             gx_path = save_filename + '_gx.png'
             im = PIL.Image.fromarray((255.0 / gx.ptp() * (gx - gx.min())).astype(np.uint8))
@@ -163,20 +166,26 @@ def save_results(a, gx, gy, phi, rx, ry, save_path, save_filename, scan_number, 
                 im.save(phi_path)
 
         if save_tif and havetiff:
-            a_path = save_filename + '_a.tif'
-            imsave(a_path, a.astype(np.float32))
-            #sio.imsave(a_path, a.astype(np.float32))
-            gx_path = save_filename + '_gx.tif'
-            imsave(gx_path, gx.astype(np.float32))
-            gy_path = save_filename + '_gy.tif'
-            imsave(gy_path, gy.astype(np.float32))
-            rx_path = save_filename + '_rx.tif'
-            imsave(rx_path, rx.astype(np.float32))
-            ry_path = save_filename + '_ry.tif'
-            imsave(ry_path, ry.astype(np.float32))
             if phi is not None:
-                phi_path = save_filename + '_phi.tif'
-                imsave(phi_path, phi.astype(np.float32))
+                imgs = np.stack((a, gx, gy, rx, ry, phi))
+                imsave(save_filename + '.tif', imgs.astype(np.float32))
+            else:
+                imgs = np.stack((a, gx, gy, rx, ry))
+                imsave(save_filename + '.tif', imgs.astype(np.float32))
+
+            # a_path = save_filename + '_a.tif'
+            # imsave(a_path, a.astype(np.float32))
+            # gx_path = save_filename + '_gx.tif'
+            # imsave(gx_path, gx.astype(np.float32))
+            # gy_path = save_filename + '_gy.tif'
+            # imsave(gy_path, gy.astype(np.float32))
+            # rx_path = save_filename + '_rx.tif'
+            # imsave(rx_path, rx.astype(np.float32))
+            # ry_path = save_filename + '_ry.tif'
+            # imsave(ry_path, ry.astype(np.float32))
+            # if phi is not None:
+            #     phi_path = save_filename + '_phi.tif'
+            #     imsave(phi_path, phi.astype(np.float32))
 
     else:
         print('Could not save results! Save directory {0} does not exist.'.format(save_path))
@@ -198,10 +207,10 @@ def init_scan_parameters():
         'energy' : 19.5,
         'pool' : None,
         'first_image' : 0,
-        'x1' : None,
-        'x2' : None,
-        'y1' : None,
-        'y2' : None,
+        'roi_x1' : None,
+        'roi_x2' : None,
+        'roi_y1' : None,
+        'roi_y2' : None,
         'bad_pixels' : [],
         'solver' : 'Nelder-Mead',
         'display_fcn' : None,
@@ -352,6 +361,20 @@ def read_scan_parameters(scan_parameters, param_filename = '', read_from_datasto
 
 
 #----------------------------------------------------------------------
+def parse_scan_range(scan_range, scan_numbers, str_scan_range):
+
+    slist = str_scan_range.split(',')
+    for item in slist:
+        if '-' in item:
+            slist = item.split('-')
+            scan_range.append((int(slist[0].strip()), int(slist[1].strip())))
+        else:
+            scan_numbers.append(int(item.strip()))
+
+    return scan_range, scan_numbers
+
+
+#----------------------------------------------------------------------
 def parse_script(script_file):
 
     scan_range = []
@@ -366,11 +389,14 @@ def parse_script(script_file):
     scan_header_index = 0
     file_format = 'S{0}.h5'
     save_filename = 'results'
+    file_store_key = ''
     save_path = ''
+    save_pngs = 1
+    save_txt = 1
 
 
-    #try:
-    if True:
+    try:
+    #if True:
         f = open(script_file, 'rt')
         for line in f:
 
@@ -379,8 +405,7 @@ def parse_script(script_file):
 
             elif 'scan_range' in line.lower():
                 slist = line.strip().split('=')
-                slist = slist[1].split('-')
-                scan_range.append((int(slist[0].strip()), int(slist[1].strip())))
+                scan_range, scan_numbers = parse_scan_range(scan_range, scan_numbers, slist[1])
 
             elif 'scan_numbers' in line.lower():
                 slist = line.strip().split('=')
@@ -420,6 +445,14 @@ def parse_script(script_file):
                 slist = line.strip().split('=')
                 save_filename = slist[1].strip()
 
+            elif 'save_pngs' in line.lower():
+                slist = line.strip().split('=')
+                save_pngs = int(slist[1])
+
+            elif 'save_txt' in line.lower():
+                slist = line.strip().split('=')
+                save_txt = int(slist[1])
+
             elif 'parameter_file' in line.lower():
                 slist = line.strip().split('=')
                 parameter_file = slist[1].strip()
@@ -434,9 +467,9 @@ def parse_script(script_file):
 
         f.close()
 
-        #     except:
-        #         print('Could not read the script file. Exiting.')
-        #         return
+    except:
+        print('Could not read the script file. Exiting.')
+        exit()
 
     print('Script setup:')
     print('scan_range', scan_range)
@@ -452,25 +485,21 @@ def parse_script(script_file):
     print('processes', processes)
     print('save_path', save_path)
     print('save_filename', save_filename)
+    print('save_pngs', save_pngs)
+    print('save_txt', save_txt)
 
     return scan_range, scan_numbers, every_nth_scan, get_data_from_datastore, data_directory, \
         read_params_from_datastore, parameter_file, processes, scan_header_index, file_format, \
-        file_store_key, save_path, save_filename
+        file_store_key, save_path, save_filename, save_pngs, save_txt
 
 
 """ ------------------------------------------------------------------------------------------------"""
-def main():
-
-    try:
-        script_file = sys.argv[1]
-    except:
-        print('Error - Script file not given.\nUsage: python dpc_batch.py myscript.txt')
-        exit()
+def run_batch(script_file):
 
     print('Parsing script ', script_file)
     scan_range, scan_numbers, every_nth_scan, get_data_from_datastore, data_directory, \
         read_params_from_datastore, parameter_file, processes, scan_header_index, file_format, \
-        file_store_key, save_path, save_filename = parse_script(script_file)
+        file_store_key, save_path, save_filename, save_pngs, save_txt = parse_script(script_file)
 
     if get_data_from_datastore == 1:
         if hxntools is None:
@@ -584,9 +613,25 @@ def main():
             **dpc_settings
         )
 
-        save_results(a, gx, gy, phi, rx, ry, save_path, save_filename, calc_scan_numbers[i_scan], save_tif=True)
+        save_results(a, gx, gy, phi, rx, ry, save_path, save_filename,
+                     calc_scan_numbers[i_scan],
+                     save_pngs=save_pngs, save_tif=True, save_txt=save_txt)
 
     print('DPC finished')
+
+
+""" ------------------------------------------------------------------------------------------------"""
+def main():
+
+    try:
+        script_file = sys.argv[1]
+    except:
+        print('Error - Script file not given.\nUsage: python dpc_batch.py myscript.txt')
+        exit()
+
+    run_batch(script_file)
+
+
 
 if __name__ == '__main__':
     main()

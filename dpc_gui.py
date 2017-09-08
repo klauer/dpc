@@ -66,7 +66,7 @@ try:
     import hxntools.handlers
     from hxntools.scan_info import ScanInfo
     from hxntools.scan_monitor import HxnScanMonitor
-    from databroker import DataBroker
+    from hxn_db_config import db
 except ImportError as ex:
     print('[!] Unable to import hxntools-related packages some features will '
           'be unavailable')
@@ -982,7 +982,7 @@ class DPCWindow(QtGui.QMainWindow):
         self.fs_key_cbox.setCurrentIndex(keys.index(key))
 
     def _load_scan_from_mds(self, scan_id, load_config=True):
-        hdrs = DataBroker(scan_id=scan_id)
+        hdrs = db[scan_id]
         if len(hdrs) == 1:
             hdr = hdrs[0]
         else:

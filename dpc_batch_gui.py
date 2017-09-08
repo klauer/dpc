@@ -14,15 +14,19 @@ from PyQt4.QtCore import Qt, QCoreApplication
 
 import dpc_batch as dpc
 
-version = '1.0.2'
+version = '1.0.5'
 
 # #----------------------------------------------------------------------
-# class EmittingStream(QtCore.QObject):
+# class PrintStream(QtCore.QObject):
+#     message = QtCore.pyqtSignal(str)
+#     def __init__(self, parent=None):
+#         super(PrintStream, self).__init__(parent)
 #
-#     textWritten = QtCore.pyqtSignal(str)
+#     def write(self, message):
+#         self.message.emit(str(message))
 #
-#     def write(self, text):
-#         self.textWritten.emit(str(text))
+#     def flush(self):
+#         pass
 
 """ ------------------------------------------------------------------------------------------------"""
 class MainFrame(QtGui.QMainWindow):
@@ -34,113 +38,67 @@ class MainFrame(QtGui.QMainWindow):
 
         self.script_file = ''
 
-        try:
-            val = self.settings.value('scan_range').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('scan_range').toPyObject()
         if val is None:
             val = ''
         self.scan_range = val
-        try:
-            val = self.settings.value('scan_nums').toPyObject()
-        except AttributeError:
-            val = None
-        if val is None:
-            val = ''
-        self.scan_nums = val
-        try:
-            val = self.settings.value('every_n').toPyObject()
-        except AttributeError:
-            val = None
+        # val = self.settings.value('scan_nums').toPyObject()
+        # if val is None:
+        #     val = ''
+        # self.scan_nums = val
+        val = self.settings.value('every_n').toPyObject()
         if val is None:
             val = 1
         self.every_n = val
-        try:
-            val = self.settings.value('load_params_datastore').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('load_params_datastore').toPyObject()
         if val is None:
             val = 0
         self.read_data_from_datastore = val
-        try:
-            val = self.settings.value('filestore_key').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('filestore_key').toPyObject()
         if val is None:
             val = 'merlin1'
         self.filestore_key = val
-        try:
-            val = self.settings.value('data_dir').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('data_dir').toPyObject()
         if val is None:
             val = ''
         self.data_directory = val
-        try:
-            val = self.settings.value('file_format').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('file_format').toPyObject()
         if val is None:
             val = 'S{0}.h5'
         self.file_format = val
-        try:
-            val = self.settings.value('load_params_datastore').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('load_params_datastore').toPyObject()
         if val is None:
             val = 0
         self.load_params_from_broker = val
-        try:
-            val = self.settings.value('param_file').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('param_file').toPyObject()
         if val is None:
             val = ''
         self.parameter_file = val
-        try:
-            val = self.settings.value('processes').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('processes').toPyObject()
         if val is None:
             val = 1
         self.processes = val
-        try:
-            val = self.settings.value('save_dir').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('save_dir').toPyObject()
         if val is None:
             val = ''
         self.save_dir = val
-        try:
-            val = self.settings.value('save_fn').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('save_fn').toPyObject()
         if val is None:
             val = ''
         self.save_filename = val
-        try:
-            val = self.settings.value('save_png').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('save_png').toPyObject()
         if val is None:
             val = 0
         self.save_png = val
-        try:
-            val = self.settings.value('save_txt').toPyObject()
-        except AttributeError:
-            val = None
+        val = self.settings.value('save_txt').toPyObject()
         if val is None:
             val = 0
         self.save_txt = val
 
 
+
         self.resize(600, 720)
         self.setWindowTitle('DPC Batch v.{}'.format(version))
-
-        pal = QtGui.QPalette()
-        self.setAutoFillBackground(True)
-        pal.setColor(QtGui.QPalette.Window,QtGui.QColor('white'))
-        self.setPalette(pal)
 
         self.mainWidget = QtGui.QWidget(self)
         self.setCentralWidget(self.mainWidget)
@@ -308,10 +266,10 @@ class MainFrame(QtGui.QMainWindow):
         vbox.addWidget(sizer4)
 
         hbox = QtGui.QHBoxLayout()
-        self.button_save = QtGui.QPushButton( 'Save')
+        self.button_save = QtGui.QPushButton( 'Save script as..')
         self.button_save.clicked.connect( self.OnSave)
         hbox.addWidget(self.button_save)
-        self.button_start = QtGui.QPushButton( 'Start')
+        self.button_start = QtGui.QPushButton( 'Save and Start')
         self.button_start.clicked.connect( self.OnStart)
         hbox.addWidget(self.button_start)
         vbox.addLayout(hbox)
@@ -320,7 +278,9 @@ class MainFrame(QtGui.QMainWindow):
         self.console_info.setReadOnly(True)
         vbox.addWidget(self.console_info)
 
-        #sys.stdout = EmittingStream(textWritten=self.ConsoleOutput)
+        # myStream = PrintStream()
+        # myStream.message.connect(self.on_myStream_message)
+        # sys.stdout = myStream
 
         self.show()
         if sys.platform == "darwin":
@@ -334,14 +294,14 @@ class MainFrame(QtGui.QMainWindow):
         sys.stdout = sys.__stdout__
 
 
-    # ----------------------------------------------------------------------
-    def ConsoleOutput(self, text):
-
-        cursor = self.console_info.textCursor()
-        cursor.movePosition(QtGui.QTextCursor.End)
-        cursor.insertText(text)
-        self.console_info.setTextCursor(cursor)
-        self.console_info.ensureCursorVisible()
+    # # ----------------------------------------------------------------------
+    # @QtCore.pyqtSlot(str)
+    # def on_myStream_message(self, message):
+    #     cursor = self.console_info.textCursor()
+    #     cursor.movePosition(QtGui.QTextCursor.End)
+    #     cursor.insertText(message)
+    #     self.console_info.setTextCursor(cursor)
+    #     self.console_info.ensureCursorVisible()
 
 #----------------------------------------------------------------------
     def OnBrowseDir(self):
@@ -519,7 +479,7 @@ class MainFrame(QtGui.QMainWindow):
             sf.write('save_txt = {0}\n'.format(self.save_txt))
             sf.close()
 
-            self.console_info.append('\nSaved script file {0}'.format(scriptfile))
+            self.console_info.append('\nSaved script file {0}\n'.format(scriptfile))
         except:
             QtGui.QMessageBox.warning(self, "Error",'Error writing script file!')
             return
